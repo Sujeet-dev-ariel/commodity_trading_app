@@ -4,7 +4,7 @@ import { homePath, resolveBackendRole } from "@/core/auth/roleStore";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
 /**
- * Entry point: login → terms → role home (backend `user.roles` decides).
+ * Entry point: login → terms → role Browse (backend `user.roles` decides).
  * Thin route — all UI lives in feature screens.
  */
 export default function Index() {

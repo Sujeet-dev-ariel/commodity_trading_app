@@ -1,4 +1,6 @@
+const raw = (process.env.EXPO_PUBLIC_API_URL ?? "").trim();
+
 export const ENV = {
   /** Base URL for the backend API. */
-  apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "https://api.example.com",
+  apiUrl: raw || "https://api.example.com",
 } as const;

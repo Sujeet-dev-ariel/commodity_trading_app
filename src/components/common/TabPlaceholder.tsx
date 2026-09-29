@@ -1,4 +1,5 @@
-import { ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ProfileButton } from "@/components/common/ProfileButton";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,7 +20,10 @@ export function TabPlaceholder({
   const insets = useSafeAreaInsets();
   return (
     <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}>
-      <Text style={styles.title}>{title}</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>{title}</Text>
+        <ProfileButton />
+      </View>
       <Text style={styles.note}>{note}</Text>
     </ScrollView>
   );
@@ -36,6 +40,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     color: colors.text,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   note: {
     fontSize: 14,

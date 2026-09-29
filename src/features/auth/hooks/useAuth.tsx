@@ -17,7 +17,7 @@ interface AuthContextValue {
   isLoading: boolean;
   /** Verifies the OTP and persists the session. */
   confirmLoginOtp: (phone: string, code: string) => Promise<void>;
-  acceptTerms: () => Promise<void>;
+  acceptTerms: (version: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -28,11 +28,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    authService
-      .loadSession()
-      .then(setSession)
-      .catch(() => setSession(null))
-      .finally(() => setIsLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await authService.loadSession();
+        if (!loaded) {
+          if (!cancelled) setSession(null);
+          return;
+        }
+        // Recheck on every cold start: a new TOS version routes to /terms.
+        // Offline → keep the persisted session, recheck next launch.
+        try {
+          const fresh = await authService.refreshTosStatus(loaded);
+          if (!cancelled) setSession(fresh);
+        } catch {
+          if (!cancelled) setSession(loaded);
+        }
+      } catch {
+        if (!cancelled) setSession(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const confirmLoginOtp = useCallback(async (phone: string, code: string) => {
@@ -40,11 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(next);
   }, []);
 
-  const acceptTerms = useCallback(async () => {
-    if (!session) throw new Error("No active session");
-    const next = await authService.acceptTerms(session);
-    setSession(next);
-  }, [session]);
+  const acceptTerms = useCallback(
+    async (version: string) => {
+      if (!session) throw new Error("No active session");
+      const next = await authService.acceptTerms(session, version);
+      setSession(next);
+    },
+    [session],
+  );
 
   const signOut = useCallback(async () => {
     await authService.signOut();

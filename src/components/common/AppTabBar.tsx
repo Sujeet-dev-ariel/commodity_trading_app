@@ -1,13 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   BrowseIcon,
   FreightIcon,
-  HomeIcon,
   PostReqIcon,
   TradesIcon,
 } from "@/components/common/TabIcons";
 import { colors } from "@/theme/colors";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export interface BarItem {
   /** Tab route name within its group. */
@@ -16,18 +15,16 @@ export interface BarItem {
   Icon: (props: { color: string }) => React.ReactNode;
 }
 
-/** Buyer bar: Home + prototype tabs (Browse, Trades, Post req, Freight). */
+/** Buyer bar: prototype tabs (Browse, Trades, Post req, Freight). Browse is first + default. */
 export const BUYER_BAR: BarItem[] = [
-  { target: "home", label: "Home", Icon: HomeIcon },
   { target: "browse", label: "Browse", Icon: BrowseIcon },
   { target: "trades", label: "Trades", Icon: TradesIcon },
   { target: "post-req", label: "Post req", Icon: PostReqIcon },
   { target: "freight", label: "Freight", Icon: FreightIcon },
 ];
 
-/** Seller bar: Home + prototype tabs (Browse→requirements, Trades→orders, Add listing, Freight). */
+/** Seller bar: prototype tabs (Browse→requirements, Trades→orders, Add listing, Freight). */
 export const SELLER_BAR: BarItem[] = [
-  { target: "dashboard", label: "Home", Icon: HomeIcon },
   { target: "requirements", label: "Browse", Icon: BrowseIcon },
   { target: "orders", label: "Trades", Icon: TradesIcon },
   { target: "add-listing", label: "Add listing", Icon: PostReqIcon },

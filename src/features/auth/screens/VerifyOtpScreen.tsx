@@ -28,7 +28,9 @@ export function VerifyOtpScreen({ phone, expiresInSec }: VerifyOtpScreenProps) {
   async function handleVerify() {
     const ok = await verify();
     if (!ok) return;
-    router.replace("/terms");
+    // Entry route decides: first login (or new TOS version) → /terms,
+    // otherwise straight to the role home.
+    router.replace("/");
   }
 
   return (

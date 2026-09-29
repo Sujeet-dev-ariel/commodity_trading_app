@@ -63,6 +63,8 @@ function normalizeUser(raw: unknown): User {
   const name = pick("name", "fullName", "displayName", "username") ?? "";
   const firmName = pick("firmName", "firm", "company", "companyName", "shopName") ?? "";
   const tosRaw = u["tosAcceptedAt"] ?? u["termsAcceptedAt"];
+  const tosVersionRaw =
+    u["tosAcceptedVersion"] ?? u["termsAcceptedVersion"] ?? u["acceptedTosVersion"];
   // Backend may send `roles: ["buyer"]`, a singular `role`/`userType` string,
   // or mixed casing — accept all, normalize to lowercase.
   const rolesRaw = u["roles"];
@@ -82,6 +84,8 @@ function normalizeUser(raw: unknown): User {
     phone,
     roles,
     tosAcceptedAt: typeof tosRaw === "string" && tosRaw ? tosRaw : null,
+    tosAcceptedVersion:
+      typeof tosVersionRaw === "string" && tosVersionRaw ? tosVersionRaw : null,
   };
 }
 

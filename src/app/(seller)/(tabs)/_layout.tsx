@@ -17,14 +17,14 @@ function SellerBar({ state, navigation }: TabBarProps) {
   );
 }
 
-/** Seller tabs (dashboard keeps the bar visible, per prototype). */
+/** Seller tabs (requirements/Browse keeps the bar visible, per prototype). */
 export default function SellerTabsLayout() {
   return (
     <Tabs
+      initialRouteName="requirements"
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <SellerBar {...props} />}
     >
-      <Tabs.Screen name="dashboard" options={{ title: "Home" }} />
       <Tabs.Screen name="requirements" options={{ title: "Browse" }} />
       <Tabs.Screen name="orders" options={{ title: "Trades" }} />
       <Tabs.Screen name="add-listing" options={{ title: "Add listing" }} />

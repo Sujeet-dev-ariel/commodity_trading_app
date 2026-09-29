@@ -10,6 +10,12 @@ interface ListingRowProps {
   tag?: string;
   /** Small outline badge under the price (e.g. requirement status). */
   badge?: string;
+  /** Accent block on the row's left edge (buyer browse quality label). */
+  qualityBadge?: string;
+  /** Accent pill under the subtitle (e.g. "Pays in 10-15 days"). */
+  pill?: string;
+  /** Muted caption under the price (e.g. "target"). */
+  priceCaption?: string;
   onPress?: () => void;
 }
 
@@ -17,15 +23,22 @@ interface ListingRowProps {
  * Shared commodity row — one component for buyer + seller
  * (parameterized, never duplicated per role).
  */
-export function ListingRow({ title, subtitle, price, tag, badge, onPress }: ListingRowProps) {
+export function ListingRow({ title, subtitle, price, tag, badge, qualityBadge, pill, priceCaption, onPress }: ListingRowProps) {
   return (
     <Pressable
-      style={styles.card}
+      style={[styles.card, qualityBadge ? styles.cardFlush : null]}
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? "button" : undefined}
     >
-      <View style={styles.main}>
+      {qualityBadge ? (
+        <View style={styles.qualityBlock}>
+          <Text style={styles.qualityText} numberOfLines={2}>
+            {qualityBadge}
+          </Text>
+        </View>
+      ) : null}
+      <View style={[styles.main, qualityBadge ? styles.mainPadded : null]}>
         {tag ? (
           <View style={styles.tag}>
             <Text style={styles.tagText}>{tag}</Text>
@@ -37,9 +50,15 @@ export function ListingRow({ title, subtitle, price, tag, badge, onPress }: List
         <Text style={styles.subtitle} numberOfLines={1}>
           {subtitle}
         </Text>
+        {pill ? (
+          <View style={styles.pill}>
+            <Text style={styles.pillText}>{pill}</Text>
+          </View>
+        ) : null}
       </View>
-      <View style={styles.side}>
+      <View style={[styles.side, qualityBadge ? styles.sidePadded : null]}>
         <Text style={styles.price}>{price}</Text>
+        {priceCaption ? <Text style={styles.priceCaption}>{priceCaption}</Text> : null}
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge}</Text>
@@ -60,10 +79,38 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 12,
     padding: spacing.md,
+    overflow: "hidden",
+  },
+  /** Quality-badge rows are flush (badge block fills the left edge). */
+  cardFlush: {
+    padding: 0,
+    gap: 0,
+    alignItems: "stretch",
+  },
+  qualityBlock: {
+    width: 88,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    backgroundColor: colors.primaryTint,
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+  },
+  qualityText: {
+    fontSize: 16,
+    fontWeight: "800",
+    textAlign: "center",
+    color: colors.primaryDark,
   },
   main: {
     flex: 1,
     minWidth: 0,
+  },
+  mainPadded: {
+    paddingVertical: spacing.md,
+    paddingRight: 0,
+    paddingLeft: spacing.md,
   },
   tag: {
     alignSelf: "flex-start",
@@ -88,14 +135,36 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 2,
   },
+  pill: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.primaryTint,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    marginTop: 3,
+  },
+  pillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primaryDark,
+  },
   side: {
     alignItems: "flex-end",
     flexShrink: 0,
+  },
+  sidePadded: {
+    paddingVertical: spacing.md,
+    paddingRight: spacing.md,
   },
   price: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,
+  },
+  priceCaption: {
+    fontSize: 11.5,
+    color: colors.muted,
+    marginTop: 2,
   },
   badge: {
     borderWidth: 1,

@@ -17,14 +17,14 @@ function BuyerBar({ state, navigation }: TabBarProps) {
   );
 }
 
-/** Buyer tabs (shared navbar on every main screen). */
+/** Buyer tabs (shared navbar on every main screen). Browse is first + default. */
 export default function BuyerTabsLayout() {
   return (
     <Tabs
+      initialRouteName="browse"
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <BuyerBar {...props} />}
     >
-      <Tabs.Screen name="home" options={{ title: "Home" }} />
       <Tabs.Screen name="browse" options={{ title: "Browse" }} />
       <Tabs.Screen name="trades" options={{ title: "Trades" }} />
       <Tabs.Screen name="post-req" options={{ title: "Post req" }} />

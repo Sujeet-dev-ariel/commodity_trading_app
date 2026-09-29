@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import {
   ActivityIndicator,
@@ -8,33 +8,118 @@ import {
   Text,
   View,
 } from "react-native";
+import { getFriendlyApiError } from "@/core/api/client";
+import { authService } from "@/core/auth/authService";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import type { TosVersion } from "@/features/auth/types/authTypes";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Placeholder legal copy (Buyer App.html `tosText`) — replace with final copy. */
-const TOS_TEXT =
-  "This is placeholder Terms of Service text for design review — final legal copy to follow. It covers acceptable use of the KKPK app, buyer and seller responsibilities on the platform, payment and settlement terms between parties, dispute handling, data use, and account suspension. Please read the full Terms of Service and Privacy Policy before continuing.";
+/** Fallback copy when the server document has no body text. */
+const FALLBACK_TOS_TEXT =
+  "Please read the full Terms of Service and Privacy Policy before continuing.";
 
-/** Terms acceptance gate (Buyer App.html `isTos`). Shown after OTP, before home. */
+/**
+ * Terms acceptance gate (Buyer App.html `isTos`).
+ * First login (or a newly published version): serves `GET /tos/current`
+ * and records `POST /tos/accept { version }`. Returning users with the
+ * current version accepted never land here (`GET /tos/status` decides).
+ */
 export function TermsScreen() {
   const insets = useSafeAreaInsets();
-  const { acceptTerms } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { session, acceptTerms } = useAuth();
+  const [tos, setTos] = useState<TosVersion | null>(null);
+  const [isFetching, setIsFetching] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isAgreeing, setIsAgreeing] = useState(false);
+  const [agreeError, setAgreeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session) {
+      router.replace("/login");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const current = await authService.fetchCurrentTos(session);
+        if (!cancelled) setTos(current);
+      } catch (e) {
+        if (!cancelled) {
+          setFetchError(
+            getFriendlyApiError(e, "Could not load the Terms of Service"),
+          );
+        }
+      } finally {
+        if (!cancelled) setIsFetching(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   async function handleAgree() {
-    setError(null);
-    setIsLoading(true);
+    if (!tos) return;
+    setAgreeError(null);
+    setIsAgreeing(true);
     try {
-      await acceptTerms();
+      await acceptTerms(tos.version);
       router.replace("/");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save acceptance");
+      setAgreeError(getFriendlyApiError(e, "Could not save acceptance"));
     } finally {
-      setIsLoading(false);
+      setIsAgreeing(false);
     }
+  }
+
+  function handleRetry() {
+    setFetchError(null);
+    setIsFetching(true);
+    (async () => {
+      try {
+        if (!session) throw new Error("No active session");
+        setTos(await authService.fetchCurrentTos(session));
+      } catch (e) {
+        setFetchError(
+          getFriendlyApiError(e, "Could not load the Terms of Service"),
+        );
+      } finally {
+        setIsFetching(false);
+      }
+    })();
+  }
+
+  if (isFetching) {
+    return (
+      <View style={[styles.safe, styles.center]}>
+        <ActivityIndicator />
+        <Text style={styles.note}>Loading Terms of Service…</Text>
+      </View>
+    );
+  }
+
+  if (fetchError || !tos) {
+    return (
+      <View
+        style={[
+          styles.safe,
+          styles.center,
+          {
+            paddingHorizontal: spacing.lg,
+            paddingBottom: insets.bottom + 20,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        <Text style={styles.title}>Terms of Service &amp; Privacy Policy</Text>
+        <Text style={styles.error}>{fetchError ?? "Could not load terms."}</Text>
+        <Pressable style={styles.btn} onPress={handleRetry}>
+          <Text style={styles.btnText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -50,18 +135,19 @@ export function TermsScreen() {
         </View>
         <Text style={styles.title}>Terms of Service &amp; Privacy Policy</Text>
         <ScrollView style={styles.card} contentContainerStyle={styles.cardContent}>
-          <Text style={styles.body}>{TOS_TEXT}</Text>
+          <Text style={styles.body}>{tos.content || FALLBACK_TOS_TEXT}</Text>
         </ScrollView>
         <View style={styles.links}>
           <Text style={styles.link}>Terms of Service</Text>
           <Text style={styles.link}>Privacy Policy</Text>
         </View>
         <Text style={styles.note}>
-          By continuing, you agree to the Terms of Service and Privacy Policy.
+          By continuing, you agree to the Terms of Service and Privacy Policy
+          {tos.title ? ` (“${tos.title}”)` : ""}.
         </Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Pressable style={styles.btn} onPress={handleAgree} disabled={isLoading}>
-          {isLoading ? (
+        {agreeError ? <Text style={styles.error}>{agreeError}</Text> : null}
+        <Pressable style={styles.btn} onPress={handleAgree} disabled={isAgreeing}>
+          {isAgreeing ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.btnText}>Agree &amp; Continue</Text>
@@ -76,6 +162,11 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  center: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
   },
   content: {
     flex: 1,

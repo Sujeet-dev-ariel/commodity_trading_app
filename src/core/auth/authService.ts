@@ -1,5 +1,6 @@
 import { authApi } from "@/features/auth/api/authApi";
-import type { AuthSession } from "@/features/auth/types/authTypes";
+import { tosApi } from "@/features/auth/api/tosApi";
+import type { AuthSession, TosVersion } from "@/features/auth/types/authTypes";
 import { clearSession, loadSession, saveSession } from "./authSession";
 
 /**
@@ -24,13 +25,53 @@ export const authService = {
       user: result.user.phone ? result.user : { ...result.user, phone },
     };
     await saveSession(session);
-    return { session };
+    // Fresh acceptance state: returning users skip terms unless a new
+    // version was published. Offline → keep verify-otp data, recheck later.
+    try {
+      return { session: await authService.refreshTosStatus(session) };
+    } catch {
+      return { session };
+    }
   },
 
-  async acceptTerms(session: AuthSession): Promise<AuthSession> {
+  /** Current TOS document for the acceptance screen. */
+  fetchCurrentTos(session: AuthSession): Promise<TosVersion> {
+    return tosApi.current(session.token);
+  },
+
+  /**
+   * Sync acceptance state from the server. A newly published version
+   * flips `accepted` to false, which routes the user back to /terms.
+   */
+  async refreshTosStatus(session: AuthSession): Promise<AuthSession> {
+    const status = await tosApi.status(session.token);
     const updated: AuthSession = {
       ...session,
-      user: { ...session.user, tosAcceptedAt: new Date().toISOString() },
+      user: {
+        ...session.user,
+        tosAcceptedAt: status.accepted
+          ? (status.acceptedAt ??
+            session.user.tosAcceptedAt ??
+            new Date().toISOString())
+          : null,
+        tosAcceptedVersion: status.accepted
+          ? (status.acceptedVersion ?? status.currentVersion)
+          : null,
+      },
+    };
+    await saveSession(updated);
+    return updated;
+  },
+
+  async acceptTerms(session: AuthSession, version: string): Promise<AuthSession> {
+    const result = await tosApi.accept(version, session.token);
+    const updated: AuthSession = {
+      ...session,
+      user: {
+        ...session.user,
+        tosAcceptedAt: result.acceptedAt ?? new Date().toISOString(),
+        tosAcceptedVersion: result.acceptedVersion,
+      },
     };
     await saveSession(updated);
     return updated;

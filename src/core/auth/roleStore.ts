@@ -4,7 +4,7 @@ import type { Role } from "@/types/domain";
 /**
  * Backend-driven role: exactly one of buyer/seller in `user.roles`
  * decides the workspace. Ambiguous accounts (both or neither) fall back
- * to the buyer home.
+ * to buyer Browse.
  */
 export function resolveBackendRole(user: Pick<User, "roles"> | null | undefined): Role | null {
   const roles = (user?.roles ?? []).map((r) =>
@@ -17,7 +17,7 @@ export function resolveBackendRole(user: Pick<User, "roles"> | null | undefined)
   return null;
 }
 
-/** Workspace for a role (ambiguous roles default to the buyer home). */
-export function homePath(role: Role | null): "/home" | "/dashboard" {
-  return role === "seller" ? "/dashboard" : "/home";
+/** Workspace landing screen for a role (ambiguous roles default to buyer Browse). */
+export function homePath(role: Role | null): "/browse" | "/requirements" {
+  return role === "seller" ? "/requirements" : "/browse";
 }
