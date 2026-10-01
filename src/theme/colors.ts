@@ -15,6 +15,11 @@ export const colors = {
   success: "#2E7D32",
   successBg: "#E9F5E9",
   warning: "#F5AF02",
+  /** Second accent (live/expiry tag background + text). */
+  accent2Tint: "#E9F5E9",
+  accent2Dark: "#2E7D32",
+  /** Solid category tag background (white text on top). */
+  tagSolid: "#3665F3",
   /** Backwards-compat aliases (prototype tokens now mapped to eBay palette). */
   accentBlue: "#3665F3",
   tagBuyerBg: "#E8EFFD",

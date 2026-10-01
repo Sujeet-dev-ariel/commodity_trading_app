@@ -17,7 +17,11 @@ export function resolveBackendRole(user: Pick<User, "roles"> | null | undefined)
   return null;
 }
 
-/** Workspace landing screen for a role (ambiguous roles default to buyer Browse). */
-export function homePath(role: Role | null): "/browse" | "/requirements" {
-  return role === "seller" ? "/requirements" : "/browse";
+/**
+ * Workspace landing screen for a role (ambiguous roles default to buyer Browse).
+ * Sellers land on their Today's-listings dashboard, which lives under the
+ * Add listing tab (Seller App.html: the Add listing tab runs `backHome`).
+ */
+export function homePath(role: Role | null): "/browse" | "/add-listing" {
+  return role === "seller" ? "/add-listing" : "/browse";
 }

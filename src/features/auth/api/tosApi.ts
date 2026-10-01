@@ -21,7 +21,32 @@ function pickString(data: RawMap, ...keys: string[]): string | null {
   for (const k of keys) {
     const v = data[k];
     if (typeof v === "string" && v.trim()) return v;
-    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  }
+  return null;
+}
+
+/**
+ * TOS versions are integers (`POST /tos/accept` rejects `"2"` with
+ * `version must be an integer`). Accepts a number or numeric string.
+ */
+function pickInt(data: RawMap, ...keys: string[]): number | null {
+  for (const k of keys) {
+    const v = data[k];
+    if (typeof v === "number" && Number.isInteger(v)) return v;
+    if (typeof v === "string" && v.trim() !== "" && Number.isInteger(Number(v))) {
+      return Number(v);
+    }
+    // `currentVersion` may arrive as an object like `{ version: 2, ... }`.
+    if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+      const nested = pickInt(
+        v as RawMap,
+        "version",
+        "versionId",
+        "v",
+        "tosVersion",
+      );
+      if (nested !== null) return nested;
+    }
   }
   return null;
 }
@@ -38,8 +63,8 @@ function pickBool(data: RawMap, ...keys: string[]): boolean | null {
 
 function normalizeVersion(raw: unknown): TosVersion {
   const data = unwrap(raw);
-  const version = pickString(data, "version", "versionId", "v", "tosVersion");
-  if (!version) {
+  const version = pickInt(data, "version", "versionId", "v", "tosVersion");
+  if (version === null) {
     throw new ApiError(
       500,
       "Unexpected server response for terms (missing version).",
@@ -63,31 +88,48 @@ function normalizeVersion(raw: unknown): TosVersion {
 
 function normalizeStatus(raw: unknown): TosStatus {
   const data = unwrap(raw);
-  const accepted = pickBool(data, "accepted", "hasAccepted", "isAccepted") ?? false;
-  return {
-    accepted,
-    currentVersion: pickString(
-      data,
-      "currentVersion",
-      "latestVersion",
-      "version",
-      "tosVersion",
-    ),
-    acceptedVersion: pickString(
-      data,
-      "acceptedVersion",
-      "termsAcceptedVersion",
-      "acceptedTosVersion",
-    ),
-    acceptedAt: pickString(data, "acceptedAt", "tosAcceptedAt", "termsAcceptedAt"),
-  };
+  const currentVersion = pickInt(
+    data,
+    "currentVersion",
+    "latestVersion",
+    "version",
+    "tosVersion",
+  );
+  const acceptedVersion = pickInt(
+    data,
+    "acceptedVersion",
+    "termsAcceptedVersion",
+    "acceptedTosVersion",
+  );
+  const acceptedAt = pickString(
+    data,
+    "acceptedAt",
+    "tosAcceptedAt",
+    "termsAcceptedAt",
+  );
+  // Newer servers send `needsAcceptance`; older ones send `accepted`.
+  // When neither is present, compare accepted vs current version numbers.
+  const explicit = pickBool(data, "accepted", "hasAccepted", "isAccepted");
+  const needsAcceptance = pickBool(
+    data,
+    "needsAcceptance",
+    "needs_acceptance",
+    "requiresAcceptance",
+  );
+  const accepted =
+    explicit ??
+    (needsAcceptance !== null
+      ? !needsAcceptance
+      : acceptedVersion !== null &&
+        (currentVersion === null || acceptedVersion >= currentVersion));
+  return { accepted, currentVersion, acceptedVersion, acceptedAt };
 }
 
-function normalizeAccept(raw: unknown, fallbackVersion: string): TosAcceptResult {
+function normalizeAccept(raw: unknown, fallbackVersion: number): TosAcceptResult {
   const data = unwrap(raw);
   return {
     acceptedVersion:
-      pickString(
+      pickInt(
         data,
         "acceptedVersion",
         "version",
@@ -113,8 +155,8 @@ export const tosApi = {
     return normalizeStatus(raw);
   },
 
-  /** Record acceptance of the given version. */
-  async accept(version: string, token: string): Promise<TosAcceptResult> {
+  /** Record acceptance of the given version (server requires an integer). */
+  async accept(version: number, token: string): Promise<TosAcceptResult> {
     const raw = await apiFetch<unknown>(apiUrl(TOS_ENDPOINTS.accept), {
       method: "POST",
       body: { version },

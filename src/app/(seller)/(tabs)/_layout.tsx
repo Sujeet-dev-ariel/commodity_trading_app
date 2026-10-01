@@ -7,7 +7,10 @@ interface TabBarProps {
 }
 
 function SellerBar({ state, navigation }: TabBarProps) {
-  const active = state.routes[state.index]?.name ?? null;
+  const route = state.routes[state.index]?.name ?? null;
+  // The listing form is a sub-screen of the Add listing tab (prototype:
+  // dashboard `goAdd` → form), so keep the tab highlighted while on it.
+  const active = route === "add-listing-form" ? "add-listing" : route;
   return (
     <AppTabBar
       items={SELLER_BAR}
@@ -17,17 +20,22 @@ function SellerBar({ state, navigation }: TabBarProps) {
   );
 }
 
-/** Seller tabs (requirements/Browse keeps the bar visible, per prototype). */
+/**
+ * Seller tabs. The Add listing tab serves the Today's-listings dashboard
+ * (prototype `backHome`); the form is a sub-screen of that tab with no
+ * tab button of its own.
+ */
 export default function SellerTabsLayout() {
   return (
     <Tabs
-      initialRouteName="requirements"
+      initialRouteName="add-listing"
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <SellerBar {...props} />}
     >
       <Tabs.Screen name="requirements" options={{ title: "Browse" }} />
       <Tabs.Screen name="orders" options={{ title: "Trades" }} />
       <Tabs.Screen name="add-listing" options={{ title: "Add listing" }} />
+      <Tabs.Screen name="add-listing-form" options={{ title: "Add listing" }} />
       <Tabs.Screen name="transport" options={{ title: "Freight" }} />
     </Tabs>
   );

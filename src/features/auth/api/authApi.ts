@@ -65,6 +65,15 @@ function normalizeUser(raw: unknown): User {
   const tosRaw = u["tosAcceptedAt"] ?? u["termsAcceptedAt"];
   const tosVersionRaw =
     u["tosAcceptedVersion"] ?? u["termsAcceptedVersion"] ?? u["acceptedTosVersion"];
+  // Server versions are integers, but tolerate numeric strings.
+  const tosAcceptedVersion =
+    typeof tosVersionRaw === "number" && Number.isInteger(tosVersionRaw)
+      ? tosVersionRaw
+      : typeof tosVersionRaw === "string" &&
+          tosVersionRaw.trim() !== "" &&
+          Number.isInteger(Number(tosVersionRaw))
+        ? Number(tosVersionRaw)
+        : null;
   // Backend may send `roles: ["buyer"]`, a singular `role`/`userType` string,
   // or mixed casing — accept all, normalize to lowercase.
   const rolesRaw = u["roles"];
@@ -84,8 +93,7 @@ function normalizeUser(raw: unknown): User {
     phone,
     roles,
     tosAcceptedAt: typeof tosRaw === "string" && tosRaw ? tosRaw : null,
-    tosAcceptedVersion:
-      typeof tosVersionRaw === "string" && tosVersionRaw ? tosVersionRaw : null,
+    tosAcceptedVersion,
   };
 }
 

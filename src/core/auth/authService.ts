@@ -63,7 +63,7 @@ export const authService = {
     return updated;
   },
 
-  async acceptTerms(session: AuthSession, version: string): Promise<AuthSession> {
+  async acceptTerms(session: AuthSession, version: number): Promise<AuthSession> {
     const result = await tosApi.accept(version, session.token);
     const updated: AuthSession = {
       ...session,

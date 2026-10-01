@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import { AppTabBar, BUYER_BAR, SELLER_BAR } from "@/components/common/AppTabBar";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { resolveBackendRole } from "@/core/auth/roleStore";
@@ -43,8 +44,38 @@ export function ProfileScreen() {
     }
   }
 
+  // Profile lives in the root-level `(shared)` stack (outside the tab
+  // navigators), so render the role's bottom bar here to keep it visible.
+  const barItems = role === "seller" ? SELLER_BAR : role === "buyer" ? BUYER_BAR : null;
+
+  /** Tab targets double as URL segments — `replace` avoids stacking tabs over profile. */
+  function goTab(target: string) {
+    switch (target) {
+      case "browse":
+        return router.replace("/browse");
+      case "trades":
+        return router.replace("/trades");
+      case "post-req":
+        return router.replace("/post-req");
+      case "freight":
+        return router.replace("/freight");
+      case "requirements":
+        return router.replace("/requirements");
+      case "orders":
+        return router.replace("/orders");
+      case "add-listing":
+        return router.replace("/add-listing");
+      case "transport":
+        return router.replace("/transport");
+      default:
+        return router.back();
+    }
+  }
+
   return (
+    <View style={styles.screen}>
     <ScrollView
+      style={styles.flex}
       contentContainerStyle={[
         styles.content,
         {
@@ -96,10 +127,19 @@ export function ProfileScreen() {
 
       <Button title={signingOut ? "Signing out…" : "Sign out"} variant="ghost" onPress={handleSignOut} />
     </ScrollView>
+    {barItems ? <AppTabBar items={barItems} active={null} onPress={goTab} /> : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  flex: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,

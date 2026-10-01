@@ -8,8 +8,8 @@ export interface User {
   roles: string[];
   /** Null until the user accepts the Terms of Service. */
   tosAcceptedAt: string | null;
-  /** Version string the user accepted (server is source of truth). */
-  tosAcceptedVersion: string | null;
+  /** Version number the user accepted (server is source of truth, integer). */
+  tosAcceptedVersion: number | null;
 }
 
 export interface AuthSession {
@@ -31,7 +31,8 @@ export interface VerifyOtpResult {
 
 /** Current Terms of Service document served by `GET /tos/current`. */
 export interface TosVersion {
-  version: string;
+  /** Integer version, e.g. `2` — `POST /tos/accept` requires an integer. */
+  version: number;
   title: string | null;
   content: string;
 }
@@ -39,13 +40,13 @@ export interface TosVersion {
 /** Acceptance state served by `GET /tos/status`. */
 export interface TosStatus {
   accepted: boolean;
-  currentVersion: string | null;
-  acceptedVersion: string | null;
+  currentVersion: number | null;
+  acceptedVersion: number | null;
   acceptedAt: string | null;
 }
 
 /** Result of `POST /tos/accept`. */
 export interface TosAcceptResult {
-  acceptedVersion: string;
+  acceptedVersion: number;
   acceptedAt: string | null;
 }

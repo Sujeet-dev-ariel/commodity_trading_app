@@ -17,7 +17,7 @@ interface AuthContextValue {
   isLoading: boolean;
   /** Verifies the OTP and persists the session. */
   confirmLoginOtp: (phone: string, code: string) => Promise<void>;
-  acceptTerms: (version: string) => Promise<void>;
+  acceptTerms: (version: number) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const acceptTerms = useCallback(
-    async (version: string) => {
+    async (version: number) => {
       if (!session) throw new Error("No active session");
       const next = await authService.acceptTerms(session, version);
       setSession(next);
