@@ -58,6 +58,7 @@ interface ApiFetchOptions {
   body?: unknown;
   token?: string;
   timeoutMs?: number;
+  headers?: Record<string, string>;
 }
 
 /** Minimal JSON fetch wrapper. Callers pass a full URL built with `apiUrl()`. */
@@ -73,7 +74,12 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
       method,
       headers: {
         "Content-Type": "application/json",
+        // Bypass ngrok's browser-warning interstitial on *.ngrok-free.dev,
+        // which otherwise swallows browser GETs (no CORS headers -> net::ERR_FAILED).
+        // Harmless against non-ngrok hosts.
+        "ngrok-skip-browser-warning": "true",
         ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+        ...(options.headers ?? {}),
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       signal: controller.signal,

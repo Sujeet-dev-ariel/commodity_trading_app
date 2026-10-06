@@ -8,7 +8,7 @@ export default function BuyerLayout() {
 
   if (isLoading) return null;
   if (status === "signed-out" || status === "needs-terms") return <Redirect href="/" />;
-  if (resolveBackendRole(session?.user) === "seller") return <Redirect href="/add-listing" />;
+  if (resolveBackendRole(session?.user) === "seller") return <Redirect href="/requirements" />;
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

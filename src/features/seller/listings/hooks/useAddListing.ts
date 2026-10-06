@@ -153,7 +153,7 @@ export function useAddListing() {
           quality: values.quality.trim() || null,
           quantityBags: Number(values.quantity.trim()),
           weightKg: values.weightKg.trim() ? Number(values.weightKg.trim()) : null,
-          price: values.price.trim() ? Number(values.price.trim()) : null,
+          price: Number(values.price.trim()),
           moisture: values.moisture.trim() || null,
           color: values.color.trim() || null,
           size: values.size.trim() || null,

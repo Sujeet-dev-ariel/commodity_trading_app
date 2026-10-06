@@ -147,9 +147,7 @@ export function AddListingScreen() {
             ) : null}
           </View>
           <View style={styles.flex1}>
-            <Text style={styles.label}>
-              Price per bag (Rs.) <Text style={styles.optionalTag}>optional</Text>
-            </Text>
+            <Text style={styles.label}>Price per bag (Rs.)</Text>
             <TextInput
               style={[
                 styles.input,

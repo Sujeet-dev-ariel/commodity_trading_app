@@ -37,11 +37,20 @@ const optionalPositiveDecimalString = (field: string) =>
       message: `${field} must be a number greater than 0`,
     });
 
+const positiveDecimalString = (field: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${field} is required`)
+    .refine((v) => Number(v) > 0 && Number.isFinite(Number(v)), {
+      message: `${field} must be a number greater than 0`,
+    });
+
 /**
  * Seller Add-listing validation — mirrors backend `validateSellListingInput`:
- * categoryId + commodityId UUIDs, quantityBags required, weightKg/price
- * optional (empty = shell listing without price), quality one of the backend
- * grades or empty, photo/video uploads not yet supported so omitted.
+ * categoryId + commodityId UUIDs, quantityBags and price required,
+ * weightKg optional, quality one of the backend grades or empty,
+ * photo/video uploads not yet supported so omitted.
  * All fields stay strings here — the hook converts numbers at the boundary.
  */
 export const addListingSchema = z.object({
@@ -55,7 +64,7 @@ export const addListingSchema = z.object({
     }),
   quantity: positiveIntString("Quantity"),
   weightKg: optionalPositiveIntString("Weight"),
-  price: optionalPositiveDecimalString("Price"),
+  price: positiveDecimalString("Price"),
   moisture: z.string().max(40, "Keep moisture under 40 characters"),
   color: z.string().max(40, "Keep color under 40 characters"),
   size: z.string().max(40, "Keep size under 40 characters"),

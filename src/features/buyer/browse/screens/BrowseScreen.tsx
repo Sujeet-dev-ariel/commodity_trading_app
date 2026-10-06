@@ -1,7 +1,7 @@
-import { ListingRow } from "@/components/common/ListingRow";
-import { ProfileButton } from "@/components/common/ProfileButton";
 import { CategoryChips } from "@/components/common/CategoryChips";
+import { ListingRow } from "@/components/common/ListingRow";
 import { ModeToggle } from "@/components/common/ModeToggle";
+import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
 import { useBrowse } from "@/features/buyer/browse/hooks/useBrowse";
 import { colors } from "@/theme/colors";
@@ -38,7 +38,12 @@ export function BrowseScreen() {
   } = useBrowse();
 
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}>
+    <ScrollView
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + spacing.md },
+      ]}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Browse</Text>
         <ProfileButton />
@@ -51,7 +56,11 @@ export function BrowseScreen() {
       />
 
       {mode === "commodity" ? (
-        <CategoryChips values={categories} value={category} onChange={setCategory} />
+        <CategoryChips
+          values={categories}
+          value={category}
+          onChange={setCategory}
+        />
       ) : (
         <TextInput
           style={styles.search}
@@ -94,7 +103,9 @@ export function BrowseScreen() {
             </View>
           ))}
           {groups.length === 0 ? (
-            <Text style={styles.empty}>No live listings in this category yet.</Text>
+            <Text style={styles.empty}>
+              No live listings in this category yet.
+            </Text>
           ) : null}
         </View>
       ) : (
@@ -122,7 +133,9 @@ export function BrowseScreen() {
                           <Text style={styles.groupTitle}>
                             {group.category} · {group.item}
                           </Text>
-                          <Text style={styles.groupMeta}>{group.weight} bag</Text>
+                          <Text style={styles.groupMeta}>
+                            {group.weight} bag
+                          </Text>
                         </View>
                         {group.rows.map((row) => (
                           <ListingRow
@@ -138,7 +151,9 @@ export function BrowseScreen() {
               </View>
             );
           })}
-          {sellerGroups.length === 0 ? <Text style={styles.empty}>No sellers match that name.</Text> : null}
+          {sellerGroups.length === 0 ? (
+            <Text style={styles.empty}>No sellers match that name.</Text>
+          ) : null}
         </View>
       )}
     </ScrollView>

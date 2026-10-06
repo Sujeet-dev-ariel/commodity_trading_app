@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/Button";
 import { priceLabel } from "@/core/utils/format";
+import { useScanSheet } from "@/features/seller/scan/hooks/useScanSheet";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -14,48 +15,31 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface ParsedRow {
-  id: number;
-  category: string;
-  item: string;
-  weight: string;
-  price: string;
-  featured: boolean;
-}
-
-/** Static sample rows (Seller App.html `INITIAL_PARSED_ROWS` — no backend). */
-const INITIAL_PARSED_ROWS: ParsedRow[] = [
-  { id: 101, category: "Rajma", item: "Black", weight: "30KG", price: "12200", featured: false },
-  { id: 102, category: "Dal", item: "Moong", weight: "30KG", price: "8100", featured: true },
-  { id: 103, category: "Dal", item: "Dal Chana", weight: "30KG", price: "11800", featured: false },
-  { id: 104, category: "Dal", item: "Dal Chana", weight: "30KG", price: "9450", featured: false },
-  { id: 105, category: "Besan", item: "Besan", weight: "35KG", price: "2630", featured: false },
-];
-
 /**
  * Seller scan flow (`isScan` + `isReview` in Seller App.html).
- * Static: photo parsing has no backend, so the sheet is simulated and the
- * review step edits + publishes the sample rows locally.
+ * Photo capture/pick is real (expo-image-picker); row parsing is simulated
+ * until an OCR backend exists — the review step edits + publishes the
+ * sample rows locally.
  */
 export function ScanScreen() {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<"scan" | "review">("scan");
-  const [isUploading, setIsUploading] = useState(false);
-  const [rows, setRows] = useState<ParsedRow[]>(INITIAL_PARSED_ROWS);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const uploadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function startScan() {
-    if (isUploading) return;
-    setIsUploading(true);
-    uploadTimer.current = setTimeout(() => {
-      setIsUploading(false);
-      setStep("review");
-    }, 900);
-  }
+  const {
+    step,
+    photoUri,
+    isPicking,
+    isParsing,
+    rows,
+    editingId,
+    setEditingId,
+    setRowPrice,
+    takePhoto,
+    pickFromLibrary,
+    clearPhoto,
+    parseSheet,
+    backToScan,
+  } = useScanSheet();
 
   function publish() {
-    if (uploadTimer.current) clearTimeout(uploadTimer.current);
     router.replace("/add-listing");
   }
 
@@ -69,7 +53,7 @@ export function ScanScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Pressable
-          onPress={() => setStep("scan")}
+          onPress={backToScan}
           accessibilityRole="button"
           accessibilityLabel="Back to scan"
           style={styles.backButton}
@@ -80,6 +64,18 @@ export function ScanScreen() {
         <Text style={styles.subtitle}>
           Tap a price to fix it. Nothing goes live until you publish.
         </Text>
+
+        {photoUri ? (
+          <View style={styles.sheetStrip}>
+            <Image
+              source={{ uri: photoUri }}
+              style={styles.sheetThumb}
+              contentFit="cover"
+              accessibilityLabel="Scanned price sheet"
+            />
+            <Text style={styles.sheetLabel}>Sheet scanned — parsed below</Text>
+          </View>
+        ) : null}
 
         <View style={styles.discussionCard}>
           <View style={styles.discussionTag}>
@@ -123,13 +119,7 @@ export function ScanScreen() {
                     keyboardType="numeric"
                     autoFocus
                     value={row.price}
-                    onChangeText={(value) =>
-                      setRows((prev) =>
-                        prev.map((r) =>
-                          r.id === row.id ? { ...r, price: value } : r,
-                        ),
-                      )
-                    }
+                    onChangeText={(value) => setRowPrice(row.id, value)}
                     onBlur={() => setEditingId(null)}
                     onSubmitEditing={() => setEditingId(null)}
                   />
@@ -159,6 +149,8 @@ export function ScanScreen() {
     );
   }
 
+  const busy = isPicking || isParsing;
+
   return (
     <ScrollView
       contentContainerStyle={[
@@ -176,27 +168,86 @@ export function ScanScreen() {
       </Pressable>
       <Text style={styles.title}>Scan price sheet</Text>
       <Text style={styles.subtitle}>
-        Upload a photo of today&apos;s sheet. We&apos;ll pull out the rows for
-        you to check.
+        Photograph today&apos;s sheet or upload a photo. We&apos;ll pull out
+        the rows for you to check.
       </Text>
 
-      <View style={styles.dropBox}>
-        <View style={styles.dropIcon}>
-          <Text style={styles.dropIconText}>▢</Text>
+      <Pressable
+        onPress={pickFromLibrary}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={
+          photoUri ? "Change price sheet photo" : "Upload price sheet photo"
+        }
+        style={styles.dropBox}
+      >
+        {photoUri ? (
+          <Image
+            source={{ uri: photoUri }}
+            style={styles.preview}
+            contentFit="cover"
+            accessibilityLabel="Selected price sheet"
+          />
+        ) : (
+          <>
+            <View style={styles.dropIcon}>
+              <Text style={styles.dropIconText}>▢</Text>
+            </View>
+            <Text style={styles.dropTitle}>Drop a photo or tap to upload</Text>
+            <Text style={styles.muted}>JPG or PNG · one page of the price list</Text>
+          </>
+        )}
+      </Pressable>
+
+      {photoUri ? (
+        <View style={styles.photoActions}>
+          <Pressable
+            onPress={takePhoto}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Retake photo"
+          >
+            <Text style={styles.linkText}>Retake</Text>
+          </Pressable>
+          <Pressable
+            onPress={pickFromLibrary}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Choose a different photo"
+          >
+            <Text style={styles.linkText}>Choose different</Text>
+          </Pressable>
+          <Pressable
+            onPress={clearPhoto}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Remove photo"
+          >
+            <Text style={[styles.linkText, styles.removeText]}>Remove</Text>
+          </Pressable>
         </View>
-        <Text style={styles.dropTitle}>Drop a photo or tap to upload</Text>
-        <Text style={styles.muted}>JPG or PNG · one page of the price list</Text>
-      </View>
+      ) : (
+        <Button
+          title={isPicking ? "Opening camera…" : "Take photo"}
+          variant="secondary"
+          disabled={busy}
+          onPress={takePhoto}
+        />
+      )}
 
       <Button
-        title={isUploading ? "Parsing…" : "Upload and Parse"}
-        disabled={isUploading}
-        onPress={startScan}
+        title={
+          isParsing ? "Parsing…" : isPicking ? "Loading photo…" : "Upload and Parse"
+        }
+        disabled={!photoUri || busy}
+        onPress={parseSheet}
       />
-      <Text style={styles.muted}>
-        Reference — a sheet like this one. Parsing runs on-device in this
-        preview; nothing is uploaded.
-      </Text>
+      {!photoUri ? (
+        <Text style={styles.muted}>
+          Add a photo of the sheet first — parsing runs on-device in this
+          preview; nothing is uploaded.
+        </Text>
+      ) : null}
     </ScrollView>
   );
 }
@@ -247,6 +298,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.surface,
     padding: spacing.xl,
+    overflow: "hidden",
+  },
+  preview: {
+    width: "100%",
+    height: 220,
+    borderRadius: 8,
   },
   dropIcon: {
     width: 48,
@@ -264,6 +321,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     textAlign: "center",
+  },
+  photoActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: spacing.lg,
+  },
+  linkText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+  removeText: {
+    color: colors.muted,
+  },
+  sheetStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.sm,
+  },
+  sheetThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+  },
+  sheetLabel: {
+    fontSize: 13,
+    color: colors.muted,
+    flex: 1,
   },
   discussionCard: {
     gap: spacing.sm,

@@ -21,14 +21,15 @@ function SellerBar({ state, navigation }: TabBarProps) {
 }
 
 /**
- * Seller tabs. The Add listing tab serves the Today's-listings dashboard
+ * Seller tabs. Browse (buyer requirements) is first + default.
+ * The Add listing tab serves the Today's-listings dashboard
  * (prototype `backHome`); the form is a sub-screen of that tab with no
  * tab button of its own.
  */
 export default function SellerTabsLayout() {
   return (
     <Tabs
-      initialRouteName="add-listing"
+      initialRouteName="requirements"
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <SellerBar {...props} />}
     >

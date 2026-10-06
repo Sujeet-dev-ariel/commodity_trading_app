@@ -48,8 +48,14 @@ export function SellerHomeScreen() {
     >
       <View style={styles.header}>
         <View style={styles.titleBlock}>
-          {firmName ? <Text style={styles.kicker}>{firmName}</Text> : null}
-          <Text style={styles.title}>Today&apos;s listings</Text>
+          {firmName ? (
+            <Text style={styles.kicker} numberOfLines={1}>
+              {firmName}
+            </Text>
+          ) : null}
+          <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>
+            Today&apos;s listings
+          </Text>
         </View>
         <View style={styles.headerRight}>
           <View style={[styles.tag, expired ? styles.tagMuted : styles.tagAccent]}>
@@ -186,7 +192,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.heading,
-    fontSize: 22,
+    fontSize: 20,
     color: colors.text,
   },
   tag: {

@@ -10,7 +10,13 @@ interface CategoryChipsProps<T extends string> {
 /** Horizontal category chips (All + CATEGORIES), ported from both prototypes. */
 export function CategoryChips<T extends string>({ values, value, onChange }: CategoryChipsProps<T>) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      showsVerticalScrollIndicator={false}
+      style={styles.scroll}
+      contentContainerStyle={styles.row}
+    >
       {values.map((c) => {
         const active = c === value;
         return (
@@ -31,12 +37,21 @@ export function CategoryChips<T extends string>({ values, value, onChange }: Cat
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   row: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingBottom: 4,
+    paddingRight: 4,
   },
   chip: {
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: "flex-start",
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 999,
