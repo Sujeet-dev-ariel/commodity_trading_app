@@ -1,12 +1,12 @@
 import { router } from "expo-router";
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { Button } from "@/components/ui/Button";
+import { BackButton } from "@/components/common/BackButton";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { OtpInput } from "@/features/auth/components/OtpInput";
 import { useOtp } from "@/features/auth/hooks/useOtp";
@@ -45,9 +45,7 @@ export function VerifyOtpScreen({ phone, expiresInSec }: VerifyOtpScreenProps) {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <Pressable style={styles.back} onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
-        </Pressable>
+        <BackButton fallback="/login" />
         <View style={styles.header}>
           <Text style={styles.title}>Enter the code</Text>
           <Text style={styles.subtitle}>
@@ -92,15 +90,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
     gap: 20,
-  },
-  back: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
   },
   header: {
     marginTop: spacing.md,

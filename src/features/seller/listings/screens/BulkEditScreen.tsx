@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/Button";
+import { BackButton } from "@/components/common/BackButton";
 import { useBulkEdit } from "@/features/seller/listings/hooks/useBulkEdit";
 import { priceLabel } from "@/core/utils/format";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { router } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
@@ -42,14 +42,7 @@ export function BulkEditScreen() {
   return (
     <View style={[styles.safe, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.head}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          style={styles.backButton}
-        >
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
+        <BackButton fallback="/add-listing" />
         <Text style={styles.title}>Bulk edit prices</Text>
         <View style={styles.selectRow}>
           <View style={styles.selectButtons}>
@@ -172,15 +165,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
   },
   title: {
     fontSize: 22,

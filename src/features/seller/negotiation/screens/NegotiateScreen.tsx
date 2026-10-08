@@ -1,4 +1,5 @@
 import { ProfileButton } from "@/components/common/ProfileButton";
+import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { useNegotiation } from "@/features/seller/negotiation/hooks/useNegotiation";
@@ -54,11 +55,6 @@ export function NegotiateScreen() {
     paymentTerms: params.paymentTerms,
   });
 
-  function goBack() {
-    if (router.canGoBack()) router.back();
-    else router.replace("/requirements");
-  }
-
   function viewAllFromBuyer() {
     if (!requirement) return;
     router.push({
@@ -78,14 +74,10 @@ export function NegotiateScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.topRow}>
-        <Pressable
-          onPress={goBack}
-          style={styles.back}
-          accessibilityRole="button"
+        <BackButton
           accessibilityLabel="Back to buyer requirements"
-        >
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
+          fallback="/requirements"
+        />
         <ProfileButton />
       </View>
       <Text style={styles.title}>Negotiate</Text>
@@ -145,14 +137,7 @@ export function NegotiateScreen() {
             <Text style={styles.muted}>
               Accept it, or send your own offer below.
             </Text>
-            <Pressable
-              onPress={acceptTarget}
-              accessibilityRole="button"
-              accessibilityLabel="Accept target price"
-              style={styles.acceptRow}
-            >
-              <Text style={styles.acceptText}>Accept target price</Text>
-            </Pressable>
+            <Button title="Accept target price" onPress={acceptTarget} />
           </View>
 
           <View>
@@ -200,15 +185,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  back: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
   },
   title: {
     fontSize: 22,
@@ -293,17 +269,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
-  },
-  acceptRow: {
-    alignSelf: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  acceptText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.primary,
-    textDecorationLine: "underline",
   },
   label: {
     fontSize: 13,

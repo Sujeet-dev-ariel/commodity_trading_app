@@ -1,4 +1,5 @@
 import { ProfileButton } from "@/components/common/ProfileButton";
+import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { FormStatus } from "@/components/ui/FormStatus";
@@ -6,7 +7,6 @@ import { useAddListing } from "@/features/seller/listings/hooks/useAddListing";
 import { QUALITY_GRADES } from "@/features/seller/listings/schemas/listingSchemas";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { router } from "expo-router";
 import {
     KeyboardAvoidingView,
     Platform,
@@ -75,17 +75,10 @@ export function AddListingScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.topRow}>
-          <Pressable
-            onPress={() => {
-              if (router.canGoBack()) router.back();
-              else router.replace("/add-listing");
-            }}
-            style={styles.back}
-            accessibilityRole="button"
+          <BackButton
             accessibilityLabel="Back to dashboard"
-          >
-            <Text style={styles.backText}>← Back</Text>
-          </Pressable>
+            fallback="/add-listing"
+          />
           <ProfileButton />
         </View>
         <Text style={styles.title}>Add listing</Text>
@@ -320,15 +313,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  back: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
   },
   title: {
     fontSize: 22,

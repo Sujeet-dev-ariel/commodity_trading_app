@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { BackButton } from "@/components/common/BackButton";
 import { priceLabel } from "@/core/utils/format";
 import { useScanSheet } from "@/features/seller/scan/hooks/useScanSheet";
 import { colors } from "@/theme/colors";
@@ -52,14 +53,7 @@ export function ScanScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <Pressable
-          onPress={backToScan}
-          accessibilityRole="button"
-          accessibilityLabel="Back to scan"
-          style={styles.backButton}
-        >
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
+        <BackButton accessibilityLabel="Back to scan" onPress={backToScan} />
         <Text style={styles.title}>Review {rows.length} rows</Text>
         <Text style={styles.subtitle}>
           Tap a price to fix it. Nothing goes live until you publish.
@@ -158,14 +152,7 @@ export function ScanScreen() {
         { paddingTop: insets.top + spacing.md },
       ]}
     >
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        style={styles.backButton}
-      >
-        <Text style={styles.backText}>‹ Back</Text>
-      </Pressable>
+      <BackButton />
       <Text style={styles.title}>Scan price sheet</Text>
       <Text style={styles.subtitle}>
         Photograph today&apos;s sheet or upload a photo. We&apos;ll pull out
@@ -259,15 +246,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
   },
   title: {
     fontSize: 22,

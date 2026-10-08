@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { AppTabBar, BUYER_BAR, SELLER_BAR } from "@/components/common/AppTabBar";
+import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { resolveBackendRole } from "@/core/auth/roleStore";
@@ -84,9 +85,7 @@ export function ProfileScreen() {
         },
       ]}
     >
-      <Pressable style={styles.back} onPress={() => router.back()}>
-        <Text style={styles.backText}>← Back</Text>
-      </Pressable>
+      <BackButton />
 
       <View style={styles.identity}>
         <View style={styles.avatar}>
@@ -147,15 +146,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,
-  },
-  back: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
   },
   identity: {
     flexDirection: "row",

@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/Button";
+import { BackButton } from "@/components/common/BackButton";
 import { priceLabel } from "@/core/utils/format";
 import { useListingDetail } from "@/features/seller/listings/hooks/useListingDetail";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -43,14 +43,10 @@ export function ListingDetailScreen() {
         { paddingTop: insets.top + spacing.md },
       ]}
     >
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
+      <BackButton
         accessibilityLabel="Back to today's listings"
-        style={styles.backButton}
-      >
-        <Text style={styles.backText}>‹ Back</Text>
-      </Pressable>
+        fallback="/add-listing"
+      />
 
       {isLoading ? (
         <View style={styles.center}>
@@ -134,15 +130,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
   },
   center: {
     alignItems: "center",

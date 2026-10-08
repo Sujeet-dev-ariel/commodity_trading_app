@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/Button";
+import { BackButton } from "@/components/common/BackButton";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { useBulkUpload } from "@/features/seller/listings/hooks/useBulkUpload";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
@@ -41,14 +42,7 @@ export function BulkUploadScreen() {
       ]}
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        style={styles.backButton}
-      >
-        <Text style={styles.backText}>‹ Back</Text>
-      </Pressable>
+      <BackButton fallback="/add-listing" />
       <Text style={styles.title}>Bulk upload</Text>
       <Text style={styles.subtitle}>
         Fill the Excel template, upload it, review the preview, then confirm.
@@ -218,15 +212,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
   },
   title: {
     fontSize: 22,
