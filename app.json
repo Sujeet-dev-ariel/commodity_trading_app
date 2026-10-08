@@ -46,7 +46,8 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan price sheets.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -14,6 +14,9 @@ export const TOS_ENDPOINTS = {
 export const LISTINGS_ENDPOINTS = {
   create: "/listings",
   bulkPrice: "/listings/bulk-price",
+  template: "/listings/template",
+  bulkUpload: "/listings/bulk-upload",
+  bulkConfirm: "/listings/bulk-confirm",
   list: (side: "BUY" | "SELL") => `/listings?side=${side}`,
   byId: (id: string) => `/listings/${id}`,
   withdraw: (id: string) => `/listings/${id}/withdraw`,

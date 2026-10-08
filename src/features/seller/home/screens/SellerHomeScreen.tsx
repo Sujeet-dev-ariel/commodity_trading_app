@@ -107,6 +107,11 @@ export function SellerHomeScreen() {
         </View>
       </View>
       <Button
+        title="Bulk upload (.xlsx)"
+        variant="secondary"
+        onPress={() => router.push("/bulk-upload")}
+      />
+      <Button
         title="Browse buyer requirements"
         variant="secondary"
         onPress={() => router.push("/requirements")}

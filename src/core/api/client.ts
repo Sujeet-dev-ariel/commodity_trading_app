@@ -61,6 +61,16 @@ interface ApiFetchOptions {
   headers?: Record<string, string>;
 }
 
+function authHeaders(token?: string): Record<string, string> {
+  return {
+    // Bypass ngrok's browser-warning interstitial on *.ngrok-free.dev,
+    // which otherwise swallows browser GETs (no CORS headers -> net::ERR_FAILED).
+    // Harmless against non-ngrok hosts.
+    "ngrok-skip-browser-warning": "true",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 /** Minimal JSON fetch wrapper. Callers pass a full URL built with `apiUrl()`. */
 export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): Promise<T> {
   const controller = new AbortController();
@@ -74,11 +84,7 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
       method,
       headers: {
         "Content-Type": "application/json",
-        // Bypass ngrok's browser-warning interstitial on *.ngrok-free.dev,
-        // which otherwise swallows browser GETs (no CORS headers -> net::ERR_FAILED).
-        // Harmless against non-ngrok hosts.
-        "ngrok-skip-browser-warning": "true",
-        ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+        ...authHeaders(options.token),
         ...(options.headers ?? {}),
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
@@ -97,6 +103,75 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
       console.log(`[api] OK ${method} ${url}`, data);
     }
     return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Multipart upload for the bulk `.xlsx` flow.
+ * Backend (`routes/listings.js`): multer memoryStorage, 5MB limit, single
+ * file field named `file`. Do NOT set Content-Type — fetch generates the
+ * multipart boundary.
+ */
+export async function apiUpload<T>(
+  url: string,
+  form: FormData,
+  options: Pick<ApiFetchOptions, "token" | "timeoutMs" | "headers"> = {},
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 60000);
+  if (__DEV__) {
+    console.log(`[api] POST ${url} (multipart)`);
+  }
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...authHeaders(options.token),
+        ...(options.headers ?? {}),
+      },
+      body: form,
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const raw = await res.text().catch(() => "");
+      if (__DEV__) {
+        console.log(`[api] ${res.status} POST ${url}`, raw);
+      }
+      throw new ApiError(res.status, extractErrorMessage(raw, res.status));
+    }
+    const data = (await res.json()) as T;
+    if (__DEV__) {
+      console.log(`[api] OK POST ${url}`, data);
+    }
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** Binary GET for the bulk template (`GET /listings/template` → .xlsx). */
+export async function apiDownload(
+  url: string,
+  options: Pick<ApiFetchOptions, "token" | "timeoutMs" | "headers"> = {},
+): Promise<Blob> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 60000);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...authHeaders(options.token),
+        ...(options.headers ?? {}),
+      },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const raw = await res.text().catch(() => "");
+      throw new ApiError(res.status, extractErrorMessage(raw, res.status));
+    }
+    return await res.blob();
   } finally {
     clearTimeout(timeout);
   }

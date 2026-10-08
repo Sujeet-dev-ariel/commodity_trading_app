@@ -91,14 +91,13 @@ export function useBulkEdit() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      const updates = rows
+      // Backend `delta` mode applies the +/- server-side atomically —
+      // send ids + delta, not client-computed absolute prices.
+      const ids = rows
         .filter((r) => selected.includes(r.id) && r.price !== null)
-        .map((r) => ({
-          id: r.id,
-          price: Math.max(0, (r.price ?? 0) + delta),
-        }));
-      if (updates.length > 0) {
-        await listingsApi.bulkPrice(updates, token);
+        .map((r) => r.id);
+      if (ids.length > 0) {
+        await listingsApi.bulkPriceDelta(ids, delta, token);
         await load();
       }
     } catch (e) {

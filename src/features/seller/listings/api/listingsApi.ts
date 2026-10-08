@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from "@/core/api/client";
+import { ApiError, apiDownload, apiFetch, apiUpload } from "@/core/api/client";
 import { LISTINGS_ENDPOINTS, apiUrl } from "@/core/api/endpoints";
 import type { Category, Listing } from "@/types/domain";
 
@@ -32,8 +32,68 @@ export interface CreatedListing {
 }
 
 export interface BulkPriceUpdate {
-  id: string;
+  listingId: string;
   price: number;
+}
+
+/** Backend `parseUploadedWorkbook` preview row (POST /listings/bulk-upload). */
+export interface BulkPreviewSuggestion {
+  id: string;
+  name: string;
+  similarity: number;
+}
+
+export interface BulkPreviewRow {
+  rowIndex: number;
+  raw: Record<string, unknown>;
+  resolved: {
+    categoryId: string | null;
+    categoryMatch: "exact" | "fuzzy" | "unresolved";
+    categorySuggestion: BulkPreviewSuggestion | null;
+    commodityId: string | null;
+    commodityMatch: "exact" | "fuzzy" | "unresolved";
+    commoditySuggestion: BulkPreviewSuggestion | null;
+    itemName: string | null;
+    quality: string | null;
+    quantityBags: number | null;
+    weightKg: number | null;
+    price: number | null;
+    paymentTerms: number | null;
+    notes: string | null;
+    moisture: string | null;
+    color: string | null;
+    size: string | null;
+  };
+  willUpdateExisting: string | null;
+  errors: string[];
+  ready: boolean;
+}
+
+export interface BulkPreviewResult {
+  summary: { totalRows: number; readyRows: number; needsReviewRows: number };
+  rows: BulkPreviewRow[];
+}
+
+/** One row for POST /listings/bulk-confirm — resolved IDs + validated cells. */
+export interface BulkConfirmRow {
+  rowIndex?: number;
+  categoryId: string;
+  commodityId: string;
+  quality?: string | null;
+  quantityBags: number;
+  weightKg?: number | null;
+  price?: number | null;
+  paymentTerms?: number | null;
+  notes?: string | null;
+  moisture?: string | null;
+  color?: string | null;
+  size?: string | null;
+}
+
+export interface BulkConfirmResult {
+  created: { rowIndex?: number; listingId: string }[];
+  updated: { rowIndex?: number; listingId: string }[];
+  failed: { rowIndex?: number; reason: string }[];
 }
 
 function toPayload(input: CreateListingInput): Record<string, unknown> {
@@ -235,15 +295,126 @@ export const listingsApi = {
   },
 
   /**
-   * PATCH `/listings/bulk-price` — bulk edit prices.
-   * NOTE: body shape is `{ updates: [{ id, price }] }`; align here if the
-   * backend contract differs.
+   * PATCH `/listings/bulk-price` — delta mode. Applies the same +/- `value`
+   * to `listingIds` atomically server-side (backend `bulkDeltaPrice`).
+   * This is what the Bulk edit screen uses — no stale-price race.
    */
-  async bulkPrice(updates: BulkPriceUpdate[], token: string): Promise<void> {
+  async bulkPriceDelta(
+    listingIds: string[],
+    value: number,
+    token: string,
+  ): Promise<void> {
     await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.bulkPrice), {
       method: "PATCH",
       token,
-      body: { updates },
+      body: { mode: "delta", listingIds, value },
     });
+  },
+
+  /**
+   * PATCH `/listings/bulk-price` — set-many mode. Distinct absolute price
+   * per listing (backend `bulkSetManyPrice`, entries keyed by `listingId`).
+   */
+  async bulkPriceSetMany(
+    updates: BulkPriceUpdate[],
+    token: string,
+  ): Promise<void> {
+    await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.bulkPrice), {
+      method: "PATCH",
+      token,
+      body: { mode: "set-many", updates },
+    });
+  },
+
+  /**
+   * PATCH `/listings/bulk-price` — legacy absolute-price helper.
+   * Prefer `bulkPriceDelta` / `bulkPriceSetMany` which match the backend
+   * `{ mode }` dispatcher.
+   * @deprecated Use bulkPriceSetMany instead.
+   */
+  async bulkPrice(updates: BulkPriceUpdate[], token: string): Promise<void> {
+    return listingsApi.bulkPriceSetMany(updates, token);
+  },
+
+  /** GET `/listings/template` — .xlsx with Category/Commodity dropdowns. */
+  async downloadTemplate(token: string): Promise<Blob> {
+    return apiDownload(apiUrl(LISTINGS_ENDPOINTS.template), { token });
+  },
+
+  /**
+   * POST `/listings/bulk-upload` — multipart `file` (.xlsx, 5MB max).
+   * Returns a row-by-row preview: `ready` rows can go straight to
+   * `bulkConfirm`; the rest carry `errors` + fuzzy `suggestion`s.
+   * Accepts a web Blob or a native `{ uri, name, mimeType }` file ref —
+   * the latter is required on iOS/Android where Blob-from-uri is unreliable.
+   */
+  async bulkUpload(
+    file: Blob | { uri: string; name: string; mimeType?: string },
+    fileName: string,
+    token: string,
+  ): Promise<BulkPreviewResult> {
+    const form = new FormData();
+    if (typeof Blob !== "undefined" && file instanceof Blob) {
+      form.append("file", file, fileName);
+    } else {
+      const ref = file as { uri: string; name: string; mimeType?: string };
+      form.append("file", {
+        uri: ref.uri,
+        name: ref.name || fileName,
+        type:
+          ref.mimeType ||
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      } as unknown as Blob);
+    }
+    const raw = await apiUpload<unknown>(apiUrl(LISTINGS_ENDPOINTS.bulkUpload), form, {
+      token,
+      timeoutMs: 60000,
+    });
+    const data = unwrapOne(raw);
+    const summaryRaw = (data["summary"] ?? data) as Record<string, unknown>;
+    const rowsRaw = (data["rows"] ?? []) as unknown[];
+    const num = (v: unknown): number =>
+      typeof v === "number" && Number.isFinite(v) ? v : 0;
+    return {
+      summary: {
+        totalRows: num(summaryRaw["totalRows"] ?? rowsRaw.length),
+        readyRows: num(summaryRaw["readyRows"]),
+        needsReviewRows: num(
+          summaryRaw["needsReviewRows"] ??
+            (Array.isArray(rowsRaw) ? rowsRaw.length - num(summaryRaw["readyRows"]) : 0),
+        ),
+      },
+      rows: (Array.isArray(rowsRaw) ? rowsRaw : []) as BulkPreviewRow[],
+    };
+  },
+
+  /**
+   * POST `/listings/bulk-confirm` — publish the reviewed rows. Creates new
+   * listings or updates the seller's live duplicate (same
+   * category/commodity/weight/quality). Partial success: check `failed`.
+   */
+  async bulkConfirm(rows: BulkConfirmRow[], token: string): Promise<BulkConfirmResult> {
+    const raw = await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.bulkConfirm), {
+      method: "POST",
+      token,
+      body: { rows },
+    });
+    const data = unwrapOne(raw);
+    const asList = (v: unknown): Record<string, unknown>[] =>
+      Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
+    return {
+      created: asList(data["created"]).map((r) => ({
+        rowIndex: typeof r["rowIndex"] === "number" ? (r["rowIndex"] as number) : undefined,
+        listingId: String(r["listingId"] ?? ""),
+      })),
+      updated: asList(data["updated"]).map((r) => ({
+        rowIndex: typeof r["rowIndex"] === "number" ? (r["rowIndex"] as number) : undefined,
+        listingId: String(r["listingId"] ?? ""),
+      })),
+      failed: asList(data["failed"]).map((r) => ({
+        rowIndex: typeof r["rowIndex"] === "number" ? (r["rowIndex"] as number) : undefined,
+        reason: typeof r["reason"] === "string" ? (r["reason"] as string) : "Unknown error",
+      })),
+    };
   },
 };
