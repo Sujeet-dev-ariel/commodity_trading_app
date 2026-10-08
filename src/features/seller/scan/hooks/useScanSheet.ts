@@ -1,9 +1,18 @@
-import { INITIAL_PARSED_ROWS, type ParsedSheetRow } from "@/mocks/scan";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 export type ScanStep = "scan" | "review";
+
+/** One parsed price-sheet row awaiting review. No mock rows — real OCR backend pending. */
+export interface ParsedSheetRow {
+  id: number;
+  category: string;
+  item: string;
+  weight: string;
+  price: string;
+  featured: boolean;
+}
 
 const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   mediaTypes: ["images"],
@@ -13,16 +22,15 @@ const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
 
 /**
  * Seller price-sheet scan flow (`isScan` + `isReview` in Seller App.html).
- * Photo capture/pick is real (expo-image-picker); row parsing is simulated —
- * there is no OCR backend yet, so parsing yields the static sample rows for
- * the seller to review, correct, and publish.
+ * Photo capture/pick is real (expo-image-picker); row parsing needs an OCR
+ * backend — until then parsing yields no rows instead of fake sample data.
  */
 export function useScanSheet() {
   const [step, setStep] = useState<ScanStep>("scan");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isPicking, setIsPicking] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
-  const [rows, setRows] = useState<ParsedSheetRow[]>(INITIAL_PARSED_ROWS);
+  const [rows, setRows] = useState<ParsedSheetRow[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -78,14 +86,14 @@ export function useScanSheet() {
     setPhotoUri(null);
   }, []);
 
-  /** Simulated parse — swap with an OCR API call when the backend exists. */
+  /** No OCR backend yet — parsing clears to an empty review set, never fake rows. */
   const parseSheet = useCallback(() => {
     if (isParsing || !photoUri) return;
     setIsParsing(true);
     parseTimer.current = setTimeout(() => {
       parseTimer.current = null;
       setIsParsing(false);
-      setRows(INITIAL_PARSED_ROWS);
+      setRows([]);
       setEditingId(null);
       setStep("review");
     }, 900);

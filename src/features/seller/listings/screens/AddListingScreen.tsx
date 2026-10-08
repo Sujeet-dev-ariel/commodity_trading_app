@@ -76,7 +76,10 @@ export function AddListingScreen() {
       >
         <View style={styles.topRow}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace("/add-listing");
+            }}
             style={styles.back}
             accessibilityRole="button"
             accessibilityLabel="Back to dashboard"

@@ -2,8 +2,9 @@ import { AddListingScreen } from "@/features/seller/listings/screens/AddListingS
 
 /**
  * Thin route — the listing form, opened from the dashboard's "Add listing"
- * button (Seller App.html `goAdd`). Lives inside the tabs navigator so the
- * bottom bar stays visible with the Add listing tab highlighted.
+ * button. Lives in the seller Stack (not in tabs) so `router.back()`
+ * returns to the previous page (Today's listings dashboard) instead of
+ * falling back to the tabs' initial Browse route.
  */
 export default function AddListingFormRoute() {
   return <AddListingScreen />;

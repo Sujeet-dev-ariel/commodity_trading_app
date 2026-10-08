@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { listingsApi } from "@/features/seller/listings/api/listingsApi";
@@ -72,6 +73,14 @@ export function useSellerHome() {
       cancelled = true;
     };
   }, [load]);
+
+  // Refetch every time the dashboard regains focus (e.g. back from the
+  // add-listing form after a publish) so newly created listings appear.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const rows = useMemo(() => listings.map(toHomeRow), [listings]);
   const liveCount = rows.length;

@@ -1,6 +1,6 @@
-import { BrowseScreen } from "@/features/browse/screens/BrowseScreen";
+import { BrowseScreen } from "@/features/buyer/browse/screens/BrowseScreen";
 
-/** Thin route — UI + logic live in the browse feature. */
+/** Thin route — UI + logic live in the buyer browse feature (live backend, no mocks). */
 export default function BrowseRoute() {
   return <BrowseScreen />;
 }
