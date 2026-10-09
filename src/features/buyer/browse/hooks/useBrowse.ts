@@ -66,7 +66,7 @@ function toRow(l: Listing): BrowseRow {
  * Live backend only — GET `/listings` + GET `/commodity-categories`.
  */
 export function useBrowse() {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [mode, setMode] = useState<BrowseMode>("commodity");
   const [category, setCategory] = useState<string>("All");
   const [sellerSearch, setSellerSearch] = useState("");
@@ -77,22 +77,20 @@ export function useBrowse() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     setError(null);
     try {
-      const [fetched, cats] = await Promise.all([
-        listingsApi.list(token),
-        catalogApi
-          .getCommodityCategories(token)
-          .then((list) => list.map((c) => c.name))
-          .catch((): string[] => []),
-      ]);
+      // runWithAuth refreshes the 15m access token on 401 and retries once,
+      // so reopening the app after a while never shows "unauthorized".
+      const [fetched, cats] = await runWithAuth((token) =>
+        Promise.all([
+          listingsApi.list(token),
+          catalogApi
+            .getCommodityCategories(token)
+            .then((list) => list.map((c) => c.name))
+            .catch((): string[] => []),
+        ]),
+      );
       setListings(fetched);
       const resolved =
         cats.length > 0
@@ -106,7 +104,7 @@ export function useBrowse() {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.token]);
+  }, [runWithAuth]);
 
   useEffect(() => {
     let cancelled = false;

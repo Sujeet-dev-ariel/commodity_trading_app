@@ -109,7 +109,7 @@ export function RequirementsBrowseScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>{String(error)}</Text>
           <Button title="Retry" variant="secondary" onPress={retry} />
         </View>
       ) : mode === "commodity" ? (

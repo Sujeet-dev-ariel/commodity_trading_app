@@ -1,5 +1,10 @@
 import { ApiError, apiDownload, apiFetch, apiUpload } from "@/core/api/client";
-import { LISTINGS_ENDPOINTS, apiUrl } from "@/core/api/endpoints";
+import {
+  COMMODITIES_ENDPOINTS,
+  COMMODITY_CATEGORIES_ENDPOINTS,
+  LISTINGS_ENDPOINTS,
+  apiUrl,
+} from "@/core/api/endpoints";
 import type { Category, Listing } from "@/types/domain";
 
 /**
@@ -123,13 +128,160 @@ function toStringId(v: unknown): string | null {
 function pickString(obj: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) {
     const v = obj[k];
-    if (typeof v === "string" && v.trim()) return v;
+    if (typeof v === "string" && v.trim()) return v.trim();
     if (v !== null && typeof v === "object") {
-      const nested = (v as Record<string, unknown>)["name"];
-      if (typeof nested === "string" && nested.trim()) return nested;
+      const nested = v as Record<string, unknown>;
+      for (const nk of ["name", "title", "label"]) {
+        const nv = nested[nk];
+        if (typeof nv === "string" && nv.trim()) return nv.trim();
+      }
     }
   }
   return "";
+}
+
+/** Display name from a string or a nested object (user/firm/commodity/category). */
+function nestedName(v: unknown): string {
+  if (typeof v === "string" && v.trim()) return v.trim();
+  if (v !== null && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    for (const k of [
+      "firmName",
+      "firm",
+      "company",
+      "companyName",
+      "shopName",
+      "name",
+      "fullName",
+      "displayName",
+      "username",
+      "title",
+      "label",
+    ]) {
+      const nv = o[k];
+      if (typeof nv === "string" && nv.trim()) return nv.trim();
+    }
+  }
+  return "";
+}
+
+/** Seller comes nested as `user: { firmName, name, ... }` — never a flat string. */
+function pickSeller(obj: Record<string, unknown>): string {
+  for (const k of [
+    "seller",
+    "sellerName",
+    "vendor",
+    "firm",
+    "firmName",
+    "company",
+    "companyName",
+    "shopName",
+  ]) {
+    const n = nestedName(obj[k]);
+    if (n) return n;
+  }
+  // Backend nests the seller as `user` (see GET /listings log: `user: [Object]`).
+  for (const k of ["user", "owner", "createdBy", "sellerUser", "profile"]) {
+    const n = nestedName(obj[k]);
+    if (n) return n;
+  }
+  return "Unknown seller";
+}
+
+/** Category: flat `category`, nested `category/commodity` objects, else catalog lookup. */
+function pickCategory(
+  obj: Record<string, unknown>,
+  categoryById?: Map<string, string>,
+  commodityToCategory?: Map<string, string>,
+): string {
+  const direct =
+    nestedName(obj["category"]) ||
+    pickString(obj, "categoryName", "category_name", "categoryLabel");
+  if (direct) return direct;
+  const viaCommodity = nestedName((obj["commodity"] as Record<string, unknown> | undefined)?.["category"]);
+  if (viaCommodity) return viaCommodity;
+  const commodityName = nestedName(obj["commodity"]);
+  if (commodityName && !commodityName.includes("QA")) return commodityName;
+  if (categoryById || commodityToCategory) {
+    const cid = toStringId(obj["categoryId"] ?? obj["category_id"]);
+    if (cid && categoryById?.get(cid)) return categoryById.get(cid) as string;
+    const mid = toStringId(obj["commodityId"] ?? obj["commodity_id"]);
+    if (mid && commodityToCategory?.get(mid))
+      return commodityToCategory.get(mid) as string;
+  }
+  return "";
+}
+
+/** Item: backend derives `itemName` from the commodity — prefer it, else catalog. */
+function pickItem(
+  obj: Record<string, unknown>,
+  commodityById?: Map<string, string>,
+): string {
+  const direct =
+    pickString(obj, "itemName", "item_name") ||
+    pickString(obj, "item", "title") ||
+    nestedName(obj["commodity"]) ||
+    pickString(obj, "commodityName", "commodity_name", "productName", "product", "name");
+  if (direct) return direct;
+  if (commodityById) {
+    const mid = toStringId(obj["commodityId"] ?? obj["commodity_id"]);
+    if (mid && commodityById.get(mid)) return commodityById.get(mid) as string;
+  }
+  return "";
+}
+
+/** Best-effort catalog maps (categoryId→name, commodityId→name/category) for UUID payloads. */
+async function fetchCatalogMaps(token: string): Promise<{
+  categoryById: Map<string, string>;
+  commodityById: Map<string, string>;
+  commodityToCategory: Map<string, string>;
+}> {
+  const categoryById = new Map<string, string>();
+  const commodityById = new Map<string, string>();
+  const commodityToCategory = new Map<string, string>();
+  try {
+    const catRaw = await apiFetch<unknown>(apiUrl(COMMODITY_CATEGORIES_ENDPOINTS.list), { token });
+    const catList: unknown[] = Array.isArray(catRaw)
+      ? catRaw
+      : Array.isArray((catRaw as Record<string, unknown>)?.["data"])
+        ? ((catRaw as Record<string, unknown>)["data"] as unknown[])
+        : [];
+    for (const e of catList) {
+      if (e && typeof e === "object") {
+        const o = e as Record<string, unknown>;
+        const id = toStringId(o["id"] ?? o["_id"]);
+        const name = typeof o["name"] === "string" ? (o["name"] as string).trim() : "";
+        if (id && name) categoryById.set(id, name);
+      }
+    }
+    const comRaw = await apiFetch<unknown>(apiUrl(COMMODITIES_ENDPOINTS.list()), { token });
+    const comList: unknown[] = Array.isArray(comRaw)
+      ? comRaw
+      : Array.isArray((comRaw as Record<string, unknown>)?.["data"])
+        ? ((comRaw as Record<string, unknown>)["data"] as unknown[])
+        : [];
+    for (const e of comList) {
+      if (e && typeof e === "object") {
+        const o = e as Record<string, unknown>;
+        const id = toStringId(o["id"] ?? o["_id"]);
+        const name = typeof o["name"] === "string" ? (o["name"] as string).trim() : "";
+        if (id && name) commodityById.set(id, name);
+        const cid = toStringId(o["categoryId"] ?? o["category_id"]);
+        const catName =
+          (o["category"] && typeof o["category"] === "object"
+            ? nestedName(o["category"])
+            : "") ||
+          (typeof o["categoryName"] === "string" ? String(o["categoryName"]).trim() : "");
+        if (id && cid) {
+          const resolved = categoryById.get(cid) || catName;
+          if (resolved) commodityToCategory.set(id, resolved);
+        }
+      }
+    }
+  } catch {
+    // Catalog is best-effort — listings still render with embedded names.
+  }
+  return { categoryById, commodityById, commodityToCategory };
 }
 
 function pickNumber(
@@ -182,31 +334,31 @@ function unwrapList(raw: unknown): Record<string, unknown>[] {
 }
 
 /** Coerce one backend listing into the app `Listing` domain shape. */
-function normalizeListing(obj: Record<string, unknown>): Listing | null {
+function normalizeListing(
+  obj: Record<string, unknown>,
+  maps?: {
+    categoryById: Map<string, string>;
+    commodityById: Map<string, string>;
+    commodityToCategory: Map<string, string>;
+  },
+): Listing | null {
   const id =
     toStringId(obj["id"]) ??
     toStringId(obj["_id"]) ??
     toStringId(obj["listingId"]);
-  // Backend derives `itemName` from the commodity; `weightKg` is an int.
-  const item = pickString(obj, "itemName", "item", "name", "title", "commodity");
+  // Backend derives `itemName` from the commodity (e.g. "QA Chana Dal Standard").
+  const item = pickItem(obj, maps?.commodityById);
   if (!id || !item) return null;
   const weightKg = pickNumber(obj, "weightKg", "weight_kg");
   const weight =
     pickString(obj, "weight", "weightPerBag", "bagWeight") ||
     (weightKg != null ? `${weightKg}KG` : "");
-  const seller =
-    pickString(
-      obj,
-      "seller",
-      "sellerName",
-      "vendor",
-      "firm",
-      "firmName",
-      "company",
-    ) || "Unknown seller";
+  const seller = pickSeller(obj);
+  const category =
+    pickCategory(obj, maps?.categoryById, maps?.commodityToCategory) || "Rice";
   return {
     id: Number.isNaN(Number(id)) ? id : Number(id),
-    category: (pickString(obj, "category") || "Rice") as Category,
+    category: category as Category,
     item,
     quality: pickString(obj, "quality", "grade", "variant"),
     weight,
@@ -222,7 +374,7 @@ function normalizeCreated(raw: unknown): CreatedListing {
     toStringId(data["_id"]) ??
     toStringId(data["listingId"]);
   // Backend derives `itemName` from the commodity — it is never a client input.
-  const item = pickString(data, "itemName", "item", "name", "title");
+  const item = pickItem(data);
   const price = pickNumber(data, "price", "pricePerBag", "rate");
   if (!id || !item) {
     throw new ApiError(500, "Unexpected server response to listing publish.");
@@ -233,13 +385,13 @@ function normalizeCreated(raw: unknown): CreatedListing {
 export const listingsApi = {
   /** GET `/listings?side=SELL` — live market listings for buyer browse. */
   async list(token: string): Promise<Listing[]> {
-    const raw = await apiFetch<unknown>(
-      apiUrl(LISTINGS_ENDPOINTS.list("SELL")),
-      { token },
-    );
+    const [raw, maps] = await Promise.all([
+      apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.list("SELL")), { token }),
+      fetchCatalogMaps(token),
+    ]);
     const out: Listing[] = [];
     for (const obj of unwrapList(raw)) {
-      const l = normalizeListing(obj);
+      const l = normalizeListing(obj, maps);
       if (l) out.push(l);
     }
     return out;
@@ -247,10 +399,11 @@ export const listingsApi = {
 
   /** GET `/listings/:id` — single listing detail. */
   async getById(id: string, token: string): Promise<Listing> {
-    const raw = await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.byId(id)), {
-      token,
-    });
-    const listing = normalizeListing(unwrapOne(raw));
+    const [raw, maps] = await Promise.all([
+      apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.byId(id)), { token }),
+      fetchCatalogMaps(token),
+    ]);
+    const listing = normalizeListing(unwrapOne(raw), maps);
     if (!listing)
       throw new ApiError(500, "Unexpected server response to listing detail.");
     return listing;

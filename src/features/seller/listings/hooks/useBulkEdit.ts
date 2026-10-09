@@ -17,7 +17,7 @@ export interface BulkRow {
  * apply −50/+50 or a custom delta via `PATCH /listings/bulk-price`.
  */
 export function useBulkEdit() {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [bulkAmount, setBulkAmount] = useState("");
@@ -27,16 +27,10 @@ export function useBulkEdit() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     setError(null);
     try {
-      const fetched = await listingsApi.list(token);
+      const fetched = await runWithAuth((token) => listingsApi.list(token));
       setRows(
         fetched.map((l) => ({
           id: String(l.id),
@@ -52,7 +46,7 @@ export function useBulkEdit() {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.token]);
+  }, [runWithAuth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,8 +80,7 @@ export function useBulkEdit() {
   }
 
   async function applyDelta(delta: number) {
-    const token = session?.token;
-    if (!token || selected.length === 0) return;
+    if (selected.length === 0) return;
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -97,7 +90,9 @@ export function useBulkEdit() {
         .filter((r) => selected.includes(r.id) && r.price !== null)
         .map((r) => r.id);
       if (ids.length > 0) {
-        await listingsApi.bulkPriceDelta(ids, delta, token);
+        await runWithAuth((token) =>
+          listingsApi.bulkPriceDelta(ids, delta, token),
+        );
         await load();
       }
     } catch (e) {

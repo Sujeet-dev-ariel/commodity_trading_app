@@ -3,6 +3,8 @@ import { ENV } from "@/core/config/env";
 export const AUTH_ENDPOINTS = {
   requestOtp: "/auth/login",
   verifyOtp: "/auth/verify-otp",
+  refresh: "/auth/refresh",
+  logout: "/auth/logout",
 } as const;
 
 export const TOS_ENDPOINTS = {

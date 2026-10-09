@@ -28,7 +28,7 @@ const INITIAL_VALUES: PostRequirementValues = {
  * (required), target price (optional), then POSTs `side: "BUY"`.
  */
 export function usePostRequirement() {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [values, setValues] = useState<PostRequirementValues>(INITIAL_VALUES);
   const [fieldErrors, setFieldErrors] = useState<PostRequirementFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -38,17 +38,16 @@ export function usePostRequirement() {
   const [commodities, setCommodities] = useState<CatalogCommodity[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [commoditiesLoading, setCommoditiesLoading] = useState(false);
+  const [commoditiesError, setCommoditiesError] = useState<string | null>(null);
+  const [commoditiesNonce, setCommoditiesNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const token = session?.token;
-      if (!token) {
-        if (!cancelled) setCatalogLoading(false);
-        return;
-      }
       try {
-        const list = await catalogApi.getCommodityCategories(token);
+        const list = await runWithAuth((token) =>
+          catalogApi.getCommodityCategories(token),
+        );
         if (!cancelled) setCategories(list);
       } catch {
         // Screen renders the empty state.
@@ -59,25 +58,56 @@ export function usePostRequirement() {
     return () => {
       cancelled = true;
     };
-  }, [session?.token]);
+  }, [runWithAuth]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const token = session?.token;
-      if (!token || !values.categoryId) {
+      const categoryId = values.categoryId;
+      if (!categoryId) {
         if (!cancelled) {
           setCommodities([]);
+          setCommoditiesError(null);
           setCommoditiesLoading(false);
         }
         return;
       }
-      if (!cancelled) setCommoditiesLoading(true);
+      if (!cancelled) {
+        setCommoditiesLoading(true);
+        setCommoditiesError(null);
+      }
       try {
-        const list = await catalogApi.getCommodities(token, values.categoryId);
+        let list = await runWithAuth((token) =>
+          catalogApi.getCommodities(token, categoryId),
+        );
+        if (list.length === 0) {
+          // Some backends ignore (or gate for buyers) the `?categoryId=`
+          // filter and return nothing — fall back to the full catalog
+          // filtered client-side by id, then by category name.
+          const all = await runWithAuth((token) =>
+            catalogApi.getCommodities(token),
+          );
+          const wanted = categories
+            .find((c) => c.id === categoryId)
+            ?.name.trim()
+            .toLowerCase();
+          const filtered = all.filter((c) =>
+            c.categoryId
+              ? c.categoryId === categoryId
+              : wanted
+                ? c.categoryName.trim().toLowerCase() === wanted
+                : false,
+          );
+          if (filtered.length > 0) list = filtered;
+        }
         if (!cancelled) setCommodities(list);
-      } catch {
-        if (!cancelled) setCommodities([]);
+      } catch (e) {
+        if (!cancelled) {
+          setCommodities([]);
+          setCommoditiesError(
+            getFriendlyApiError(e, "Could not load commodities"),
+          );
+        }
       } finally {
         if (!cancelled) setCommoditiesLoading(false);
       }
@@ -85,7 +115,11 @@ export function usePostRequirement() {
     return () => {
       cancelled = true;
     };
-  }, [session?.token, values.categoryId]);
+  }, [runWithAuth, values.categoryId, categories, commoditiesNonce]);
+
+  const retryCommodities = useCallback(() => {
+    setCommoditiesNonce((n) => n + 1);
+  }, []);
 
   const categoryNameById = useMemo(
     () => new Map(categories.map((c) => [c.id, c.name] as const)),
@@ -131,21 +165,18 @@ export function usePostRequirement() {
       setFieldErrors(nextErrors);
       return false;
     }
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      return false;
-    }
     setIsLoading(true);
     try {
-      const created = await requirementsApi.create(
-        {
-          categoryId: values.categoryId.trim(),
-          commodityId: values.commodityId.trim(),
-          quantityBags: Number(values.quantity.trim()),
-          price: values.price.trim() ? Number(values.price.trim()) : null,
-        },
-        token,
+      const created = await runWithAuth((token) =>
+        requirementsApi.create(
+          {
+            categoryId: values.categoryId.trim(),
+            commodityId: values.commodityId.trim(),
+            quantityBags: Number(values.quantity.trim()),
+            price: values.price.trim() ? Number(values.price.trim()) : null,
+          },
+          token,
+        ),
       );
       setFieldErrors({});
       setValues(INITIAL_VALUES);
@@ -175,6 +206,8 @@ export function usePostRequirement() {
     commodities,
     catalogLoading,
     commoditiesLoading,
+    commoditiesError,
+    retryCommodities,
     categoryNameById,
     commodityNameById,
   };

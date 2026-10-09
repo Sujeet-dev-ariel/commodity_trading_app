@@ -108,6 +108,7 @@ function normalizeVerifyResult(raw: unknown): VerifyOtpResult {
       ? (inner as Record<string, unknown>)
       : root;
   // Server sends { accessToken, refreshToken, user }; accept `token` alias too.
+  // The refresh endpoint returns only { accessToken } (no rotation, no user).
   const token = (data["accessToken"] ?? data["token"] ?? root["accessToken"] ?? root["token"]) as unknown;
   const refreshToken = (data["refreshToken"] ?? root["refreshToken"]) as unknown;
   const user = normalizeUser(data["user"] ?? root["user"]);
@@ -142,5 +143,43 @@ export const authApi = {
       body: { phone: input.phone, otp: input.code },
     });
     return normalizeVerifyResult(raw);
+  },
+
+  /**
+   * POST `/auth/refresh` — exchange the long-lived (30d) refresh token for a
+   * fresh short-lived (15m) access token. The backend does NOT rotate the
+   * refresh token: response is `{ success: true, data: { accessToken } }`.
+   * Throws ApiError 401/403 when the refresh token is invalid/revoked.
+   */
+  async refreshAccessToken(refreshToken: string): Promise<string> {
+    const raw = await apiFetch<unknown>(apiUrl(AUTH_ENDPOINTS.refresh), {
+      method: "POST",
+      body: { refreshToken },
+    });
+    const root = (raw !== null && typeof raw === "object" ? raw : {}) as Record<
+      string,
+      unknown
+    >;
+    const inner = root["data"];
+    const data =
+      inner !== null && typeof inner === "object"
+        ? (inner as Record<string, unknown>)
+        : root;
+    const token = (data["accessToken"] ?? data["token"]) as unknown;
+    if (typeof token !== "string" || !token) {
+      throw new ApiError(
+        500,
+        "Unexpected server response to session refresh (missing accessToken).",
+      );
+    }
+    return token;
+  },
+
+  /** POST `/auth/logout` — revoke the refresh token server-side (best-effort). */
+  async logout(refreshToken: string): Promise<void> {
+    await apiFetch<unknown>(apiUrl(AUTH_ENDPOINTS.logout), {
+      method: "POST",
+      body: { refreshToken },
+    });
   },
 };

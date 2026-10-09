@@ -7,21 +7,18 @@ import { useEffect, useState } from "react";
  * Fails silent (empty list) — callers show an error/empty state.
  */
 export function useCommodityCategories() {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [categories, setCategories] = useState<CatalogCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const token = session?.token;
-      if (!token) {
-        if (!cancelled) setIsLoading(false);
-        return;
-      }
       if (!cancelled) setIsLoading(true);
       try {
-        const list = await catalogApi.getCommodityCategories(token);
+        const list = await runWithAuth((token) =>
+          catalogApi.getCommodityCategories(token),
+        );
         if (!cancelled) setCategories(list);
       } catch {
         // Callers render the empty/error state.
@@ -32,7 +29,7 @@ export function useCommodityCategories() {
     return () => {
       cancelled = true;
     };
-  }, [session?.token]);
+  }, [runWithAuth]);
 
   return { categories, isLoading };
 }

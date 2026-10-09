@@ -41,28 +41,24 @@ function timeUntil2AM(now = new Date()): string {
  * `GET /listings?side=SELL`, live/priced counts, and the 2 AM expiry state.
  */
 export function useSellerHome() {
-  const { session } = useAuth();
+  const { session, runWithAuth } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     setError(null);
     try {
-      setListings(await listingsApi.list(token));
+      // runWithAuth refreshes the 15m access token on 401 and retries once,
+      // so reopening the app after a while never shows "unauthorized".
+      setListings(await runWithAuth((token) => listingsApi.list(token)));
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not load today's listings"));
     } finally {
       setIsLoading(false);
     }
-  }, [session?.token]);
+  }, [runWithAuth]);
 
   useEffect(() => {
     let cancelled = false;

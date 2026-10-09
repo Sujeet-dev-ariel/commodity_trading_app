@@ -7,12 +7,25 @@ import type { BuyerRequirement, Category } from "@/types/domain";
 function pickString(obj: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) {
     const v = obj[k];
-    if (typeof v === "string" && v.trim()) return v;
+    if (typeof v === "string" && v.trim()) return v.trim();
     if (v !== null && typeof v === "object") {
       const nested = v as Record<string, unknown>;
-      for (const key of ["name", "title", "label", "item", "companyName"]) {
+      for (const key of [
+        "firmName",
+        "firm",
+        "company",
+        "companyName",
+        "shopName",
+        "name",
+        "fullName",
+        "displayName",
+        "username",
+        "title",
+        "label",
+        "item",
+      ]) {
         const value = nested[key];
-        if (typeof value === "string" && value.trim()) return value;
+        if (typeof value === "string" && value.trim()) return value.trim();
       }
     }
   }
@@ -24,7 +37,6 @@ function pickNumber(
   ...keys: string[]
 ): number | null {
   for (const k of keys) {
-    
     const v = obj[k];
     const n = typeof v === "string" && v.trim() !== "" ? Number(v) : v;
     if (typeof n === "number" && Number.isFinite(n)) return n;
@@ -100,24 +112,34 @@ function normalizeRequirement(
     toId(obj["requirement_id"]) ??
     toId(obj["listing_id"]) ??
     toId(obj["uuid"]);
+  // Backend derives `itemName` from the commodity — prefer it first.
   const item = pickString(
     obj,
+    "itemName",
+    "item_name",
     "item",
-    "name",
-    "title",
     "commodity",
     "commodityName",
     "commodity_name",
     "productName",
     "product_name",
-    "itemName",
-    "item_name",
+    "name",
+    "title",
     "product",
   );
   if (id == null || !item) return null;
   return {
-    id: typeof id === "number" ? id : Number(id) || 0,
-    category: (pickString(obj, "category", "categoryName") || "Rice") as Category,
+    // Keep the backend id verbatim (UUID string or number). Coercing with
+    // `Number(id)` collapses every UUID to 0 → duplicate React keys and
+    // every row opening the same detail.
+    id,
+    category: (pickString(
+      obj,
+      "category",
+      "categoryName",
+      "category_name",
+      "commodity",
+    ) || "Rice") as Category,
     item,
     buyer:
       pickString(
@@ -129,11 +151,16 @@ function normalizeRequirement(
         "buyerCompany",
         "buyer_company",
         "customer",
+        "firmName",
+        "firm",
+        "company",
         "companyName",
         "company_name",
+        "shopName",
         "createdBy",
         "created_by",
         "user",
+        "owner",
         "userName",
         "user_name",
       ) || "Unknown buyer",
@@ -257,10 +284,9 @@ export const requirementsApi = {
    * (backend: `router.get('/:id', listingController.getById)`).
    */
   async getById(id: string, token: string): Promise<BuyerRequirement> {
-    const raw = await apiFetch<unknown>(
-      apiUrl(LISTINGS_ENDPOINTS.byId(id)),
-      { token },
-    );
+    const raw = await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.byId(id)), {
+      token,
+    });
     const requirement = normalizeRequirement(unwrapOne(raw));
     if (!requirement) {
       throw new ApiError(

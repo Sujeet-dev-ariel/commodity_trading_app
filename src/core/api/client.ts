@@ -40,6 +40,11 @@ function extractErrorMessage(raw: string, status: number): string {
   return `Request failed (${status})`;
 }
 
+/** True when the server rejected the access token (expired/invalid). */
+export function isUnauthorizedError(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 401;
+}
+
 /** Map any thrown API failure to a UI-ready message. */
 export function getFriendlyApiError(e: unknown, fallback = "Something went wrong"): string {
   if (e instanceof ApiError) return e.message;

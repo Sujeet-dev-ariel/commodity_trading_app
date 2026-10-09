@@ -38,7 +38,8 @@ export interface Requirement {
 
 /** Buyer requirement as seen by sellers (seller requirements slice). */
 export interface BuyerRequirement {
-  id: number;
+  /** Backend UUID (string) or legacy numeric id — never coerce to number. */
+  id: string | number;
   category: Category;
   item: string;
   buyer: string;

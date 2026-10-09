@@ -7,15 +7,14 @@ import { useEffect, useState } from "react";
  * Pass `null` (no category chosen yet) to get an empty list.
  */
 export function useCommodities(categoryId: string | null) {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [commodities, setCommodities] = useState<CatalogCommodity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const token = session?.token;
-      if (!token || !categoryId) {
+      if (!categoryId) {
         if (!cancelled) {
           setCommodities([]);
           setIsLoading(false);
@@ -24,7 +23,9 @@ export function useCommodities(categoryId: string | null) {
       }
       if (!cancelled) setIsLoading(true);
       try {
-        const list = await catalogApi.getCommodities(token, categoryId);
+        const list = await runWithAuth((token) =>
+          catalogApi.getCommodities(token, categoryId),
+        );
         if (!cancelled) setCommodities(list);
       } catch {
         if (!cancelled) setCommodities([]);
@@ -35,7 +36,7 @@ export function useCommodities(categoryId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [session?.token, categoryId]);
+  }, [runWithAuth, categoryId]);
 
   return { commodities, isLoading };
 }

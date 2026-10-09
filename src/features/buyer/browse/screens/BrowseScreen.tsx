@@ -4,8 +4,11 @@ import { ModeToggle } from "@/components/common/ModeToggle";
 import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
 import { useBrowse } from "@/features/buyer/browse/hooks/useBrowse";
+import type { BrowseRow } from "@/features/buyer/browse/hooks/useBrowse";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -20,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 /** Buyer Browse (`isBrowse` in Buyer App.html): By Commodity / By Seller, rows open detail next slice. */
 export function BrowseScreen() {
   const insets = useSafeAreaInsets();
+  const { seller: sellerParam } = useLocalSearchParams<{ seller?: string }>();
   const {
     categories,
     mode,
@@ -36,6 +40,30 @@ export function BrowseScreen() {
     error,
     retry,
   } = useBrowse();
+
+  // Deep-link from listing detail ("View all listings from X"): switch to
+  // By Seller + filter.
+  useEffect(() => {
+    if (typeof sellerParam === "string" && sellerParam.trim()) {
+      setMode("seller");
+      setSellerSearch(sellerParam);
+    }
+  }, [sellerParam, setMode, setSellerSearch]);
+
+  function openListing(row: BrowseRow) {
+    router.push({
+      pathname: "/browse/[id]",
+      params: {
+        id: String(row.id),
+        category: row.category,
+        item: row.item,
+        quality: row.quality,
+        weight: row.weight,
+        seller: row.seller,
+        price: String(row.price),
+      },
+    });
+  }
 
   return (
     <ScrollView
@@ -98,6 +126,7 @@ export function BrowseScreen() {
                   title={row.seller}
                   subtitle={`${row.qualityText} · ${row.weight}`}
                   price={row.priceText}
+                  onPress={() => openListing(row)}
                 />
               ))}
             </View>
@@ -144,6 +173,7 @@ export function BrowseScreen() {
                             title={row.item}
                             subtitle={`${row.qualityText} · ${row.weight}`}
                             price={row.priceText}
+                            onPress={() => openListing(row)}
                           />
                         ))}
                       </View>

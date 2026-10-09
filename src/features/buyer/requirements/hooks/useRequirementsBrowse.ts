@@ -41,7 +41,7 @@ export function toRequirementRow(
  * categories from GET `/commodity-categories` (derived fallback).
  */
 export function useRequirementsBrowse() {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [mode, setMode] = useState<ReqMode>("commodity");
   const [category, setCategory] = useState<string>("All");
   const [buyerSearch, setBuyerSearch] = useState("");
@@ -52,18 +52,14 @@ export function useRequirementsBrowse() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     setError(null);
     try {
       let resolvedCategories: string[] = [];
       try {
-        const fetched = await catalogApi.getCommodityCategories(token);
+        const fetched = await runWithAuth((token) =>
+          catalogApi.getCommodityCategories(token),
+        );
         resolvedCategories = fetched.map((c) => c.name);
         if (resolvedCategories.length > 0) {
           setCategories(["All", ...resolvedCategories]);
@@ -72,7 +68,7 @@ export function useRequirementsBrowse() {
         resolvedCategories = [];
       }
 
-      const fetched = await requirementsApi.list(token);
+      const fetched = await runWithAuth((token) => requirementsApi.list(token));
       setSource(fetched);
       if (resolvedCategories.length === 0) {
         const fallbackCategories = [
@@ -85,7 +81,7 @@ export function useRequirementsBrowse() {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.token]);
+  }, [runWithAuth]);
 
   useEffect(() => {
     let cancelled = false;

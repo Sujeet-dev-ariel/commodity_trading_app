@@ -28,7 +28,7 @@ export interface PickedXlsx {
  * `ready` + `needsReview` rows → confirm the ready rows.
  */
 export function useBulkUpload() {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [step, setStep] = useState<BulkUploadStep>("pick");
   const [file, setFile] = useState<PickedXlsx | null>(null);
   const [preview, setPreview] = useState<BulkPreviewResult | null>(null);
@@ -49,50 +49,47 @@ export function useBulkUpload() {
   );
 
   const downloadTemplate = useCallback(async () => {
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      return;
-    }
     setIsDownloading(true);
     setError(null);
     try {
-      if (Platform.OS === "web") {
-        const blob = await listingsApi.downloadTemplate(token);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "listing-bulk-template.xlsx";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-      } else {
-        // Native: download straight to a cache file so the auth header
-        // travels with the request (no blob round-trip), then share it.
-        const { File, Paths } = await import("expo-file-system");
-        const Sharing = await import("expo-sharing");
-        const dest = new File(Paths.cache, "listing-bulk-template.xlsx");
-        const downloaded = await File.downloadFileAsync(
-          apiUrl(LISTINGS_ENDPOINTS.template),
-          dest,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(downloaded.uri, {
-            mimeType:
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          });
+      await runWithAuth(async (token) => {
+        if (Platform.OS === "web") {
+          const blob = await listingsApi.downloadTemplate(token);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "listing-bulk-template.xlsx";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
         } else {
-          setError(`Template saved to ${downloaded.uri}`);
+          // Native: download straight to a cache file so the auth header
+          // travels with the request (no blob round-trip), then share it.
+          const { File, Paths } = await import("expo-file-system");
+          const Sharing = await import("expo-sharing");
+          const dest = new File(Paths.cache, "listing-bulk-template.xlsx");
+          const downloaded = await File.downloadFileAsync(
+            apiUrl(LISTINGS_ENDPOINTS.template),
+            dest,
+            { headers: { Authorization: `Bearer ${token}` }, idempotent: true },
+          );
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(downloaded.uri, {
+              mimeType:
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            });
+          } else {
+            setError(`Template saved to ${downloaded.uri}`);
+          }
         }
-      }
+      });
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not download the template"));
     } finally {
       setIsDownloading(false);
     }
-  }, [session?.token]);
+  }, [runWithAuth]);
 
   const pickFile = useCallback(async () => {
     if (isPicking || isUploading) return;
@@ -124,11 +121,6 @@ export function useBulkUpload() {
   }, [isPicking, isUploading]);
 
   const upload = useCallback(async () => {
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      return;
-    }
     if (!file) {
       setError("Pick an .xlsx file first.");
       return;
@@ -142,7 +134,9 @@ export function useBulkUpload() {
         const blob = await res.blob();
         payload = blob;
       }
-      const parsed = await listingsApi.bulkUpload(payload, file.name, token);
+      const parsed = await runWithAuth((token) =>
+        listingsApi.bulkUpload(payload, file.name, token),
+      );
       setPreview(parsed);
       setResult(null);
       setStep("preview");
@@ -151,14 +145,9 @@ export function useBulkUpload() {
     } finally {
       setIsUploading(false);
     }
-  }, [file, session?.token]);
+  }, [file, runWithAuth]);
 
   const confirm = useCallback(async () => {
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      return;
-    }
     if (readyRows.length === 0) {
       setError("No ready rows to confirm — fix the file and re-upload.");
       return;
@@ -180,7 +169,9 @@ export function useBulkUpload() {
         color: r.resolved.color,
         size: r.resolved.size,
       }));
-      const out = await listingsApi.bulkConfirm(rows, token);
+      const out = await runWithAuth((token) =>
+        listingsApi.bulkConfirm(rows, token),
+      );
       setResult(out);
       setStep("done");
     } catch (e) {
@@ -188,7 +179,7 @@ export function useBulkUpload() {
     } finally {
       setIsConfirming(false);
     }
-  }, [readyRows, session?.token]);
+  }, [readyRows, runWithAuth]);
 
   const reset = useCallback(() => {
     setFile(null);

@@ -58,7 +58,7 @@ const INITIAL_VALUES: AddListingValues = {
  * `itemName` is never a client input — the backend derives it from the commodity.
  */
 export function useAddListing() {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [values, setValues] = useState<AddListingValues>(INITIAL_VALUES);
   const [fieldErrors, setFieldErrors] = useState<AddListingFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -139,30 +139,29 @@ export function useAddListing() {
       setFieldErrors(nextErrors);
       return false;
     }
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      return false;
-    }
     setIsLoading(true);
     try {
-      const created = await listingsApi.create(
-        {
-          categoryId: values.categoryId.trim(),
-          commodityId: values.commodityId.trim(),
-          quality: values.quality.trim() || null,
-          quantityBags: Number(values.quantity.trim()),
-          weightKg: values.weightKg.trim() ? Number(values.weightKg.trim()) : null,
-          price: Number(values.price.trim()),
-          moisture: values.moisture.trim() || null,
-          color: values.color.trim() || null,
-          size: values.size.trim() || null,
-          paymentTerms: values.overridePayment
-            ? values.paymentTerms.trim() || null
-            : null,
-          notes: values.notes.trim() || null,
-        },
-        token,
+      const created = await runWithAuth((token) =>
+        listingsApi.create(
+          {
+            categoryId: values.categoryId.trim(),
+            commodityId: values.commodityId.trim(),
+            quality: values.quality.trim() || null,
+            quantityBags: Number(values.quantity.trim()),
+            weightKg: values.weightKg.trim()
+              ? Number(values.weightKg.trim())
+              : null,
+            price: Number(values.price.trim()),
+            moisture: values.moisture.trim() || null,
+            color: values.color.trim() || null,
+            size: values.size.trim() || null,
+            paymentTerms: values.overridePayment
+              ? values.paymentTerms.trim() || null
+              : null,
+            notes: values.notes.trim() || null,
+          },
+          token,
+        ),
       );
       setFieldErrors({});
       setValues(INITIAL_VALUES);

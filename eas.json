@@ -12,13 +12,13 @@
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_API_URL": " https://expend-street-crested.ngrok-free.dev/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://tradding-backend.onrender.com/api/v1"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": " https://expend-street-crested.ngrok-free.dev/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://tradding-backend.onrender.com/api/v1"
       }
     }
   },

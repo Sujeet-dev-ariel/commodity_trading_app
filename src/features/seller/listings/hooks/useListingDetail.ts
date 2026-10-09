@@ -6,7 +6,7 @@ import type { Listing } from "@/types/domain";
 
 /** Single own-listing detail via `GET /listings/:id`. */
 export function useListingDetail(id: string | undefined) {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const [listing, setListing] = useState<Listing | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,22 +17,16 @@ export function useListingDetail(id: string | undefined) {
       setIsLoading(false);
       return;
     }
-    const token = session?.token;
-    if (!token) {
-      setError("Your session expired. Please sign in again.");
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     setError(null);
     try {
-      setListing(await listingsApi.getById(id, token));
+      setListing(await runWithAuth((token) => listingsApi.getById(id, token)));
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not load this listing"));
     } finally {
       setIsLoading(false);
     }
-  }, [id, session?.token]);
+  }, [id, runWithAuth]);
 
   useEffect(() => {
     let cancelled = false;

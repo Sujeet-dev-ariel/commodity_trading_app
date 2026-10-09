@@ -25,7 +25,9 @@ function seedFromParams(seed: NegotiationSeed): BuyerRequirement | null {
   const bags = Number(seed.bags ?? 0);
   const targetPrice = Number(seed.targetPrice ?? 0);
   return {
-    id: Number(seed.id ?? 0) || 0,
+    // Route params carry the id as a string (backend UUID) — keep it
+    // verbatim. `Number(uuid)` is NaN → 0, which breaks detail refresh.
+    id: seed.id ?? "",
     category: (seed.category || "Rice") as BuyerRequirement["category"],
     item: seed.item,
     buyer: seed.buyer,
@@ -43,7 +45,7 @@ function seedFromParams(seed: NegotiationSeed): BuyerRequirement | null {
  * offers contract — until then the actions say so instead of faking a trade.
  */
 export function useNegotiation(seed: NegotiationSeed) {
-  const { session } = useAuth();
+  const { runWithAuth } = useAuth();
   const { id, item, buyer } = seed;
   const [requirement, setRequirement] = useState<BuyerRequirement | null>(() =>
     seedFromParams(seed),
@@ -62,18 +64,12 @@ export function useNegotiation(seed: NegotiationSeed) {
       }
       return;
     }
-    const token = session?.token;
-    if (!token) {
-      if (!item) {
-        setError("Your session expired. Please sign in again.");
-        setIsLoading(false);
-      }
-      return;
-    }
     setIsLoading(true);
     setError(null);
     try {
-      setRequirement(await requirementsApi.getById(id, token));
+      setRequirement(
+        await runWithAuth((token) => requirementsApi.getById(id, token)),
+      );
     } catch (e) {
       // Keep the seeded row when refresh fails — the page still works.
       if (!item || !buyer) {
@@ -82,7 +78,7 @@ export function useNegotiation(seed: NegotiationSeed) {
     } finally {
       setIsLoading(false);
     }
-  }, [id, item, buyer, session?.token]);
+  }, [id, item, buyer, runWithAuth]);
 
   useEffect(() => {
     let cancelled = false;

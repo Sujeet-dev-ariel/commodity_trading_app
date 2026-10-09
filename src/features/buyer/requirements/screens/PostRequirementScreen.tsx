@@ -8,6 +8,7 @@ import { spacing } from "@/theme/spacing";
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,6 +35,8 @@ export function PostRequirementScreen() {
     commodities,
     catalogLoading,
     commoditiesLoading,
+    commoditiesError,
+    retryCommodities,
     categoryNameById,
     commodityNameById,
   } = usePostRequirement();
@@ -48,9 +51,11 @@ export function PostRequirementScreen() {
     ? "Select a category first"
     : commoditiesLoading
       ? "Loading commodities…"
-      : commodities.length === 0
-        ? "No commodities in this category"
-        : "Select a commodity";
+      : commoditiesError
+        ? "Could not load commodities"
+        : commodities.length === 0
+          ? "No commodities in this category"
+          : "Select a commodity";
 
   return (
     <KeyboardAvoidingView
@@ -100,6 +105,17 @@ export function PostRequirementScreen() {
           }}
           error={fieldErrors.commodityId ?? null}
         />
+        {commoditiesError ? (
+          <Pressable
+            onPress={retryCommodities}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading commodities"
+          >
+            <Text style={styles.fieldError}>
+              {commoditiesError} Tap to retry.
+            </Text>
+          </Pressable>
+        ) : null}
 
         <View>
           <Text style={styles.label}>Quantity (bags)</Text>

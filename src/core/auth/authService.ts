@@ -1,7 +1,14 @@
+import { ApiError } from "@/core/api/client";
 import { authApi } from "@/features/auth/api/authApi";
 import { tosApi } from "@/features/auth/api/tosApi";
 import type { AuthSession, TosVersion } from "@/features/auth/types/authTypes";
 import { clearSession, loadSession, saveSession } from "./authSession";
+
+/**
+ * Single-flight guard: parallel 401s / foreground events share one refresh
+ * call instead of hammering POST /auth/refresh.
+ */
+let inflightRefresh: Promise<AuthSession> | null = null;
 
 /**
  * App-level auth orchestration: API calls + session persistence.
@@ -77,7 +84,51 @@ export const authService = {
     return updated;
   },
 
-  async signOut(): Promise<void> {
+  /**
+   * Exchange the stored refresh token for a fresh access token and persist it.
+   * Single-flight: concurrent callers share one network request.
+   * Throws when there is no refresh token or the server rejects it (401/403)
+   * — the caller must treat that as signed-out (clear + redirect to login).
+   */
+  refreshSession(session: AuthSession): Promise<AuthSession> {
+    if (!session.refreshToken) {
+      return Promise.reject(
+        new ApiError(401, "Your session expired. Please sign in again."),
+      );
+    }
+    if (!inflightRefresh) {
+      inflightRefresh = (async () => {
+        try {
+          const token = await authApi.refreshAccessToken(
+            session.refreshToken as string,
+          );
+          const updated: AuthSession = { ...session, token };
+          await saveSession(updated);
+          return updated;
+        } catch (e) {
+          // Refresh token invalid/revoked/expired — nothing left to keep.
+          if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+            await clearSession();
+          }
+          throw e;
+        } finally {
+          inflightRefresh = null;
+        }
+      })();
+    }
+    return inflightRefresh;
+  },
+
+  async signOut(session?: AuthSession | null): Promise<void> {
+    // Revoke the 30-day refresh token server-side (best-effort), then clear.
+    const refreshToken = session?.refreshToken;
+    if (refreshToken) {
+      try {
+        await authApi.logout(refreshToken);
+      } catch {
+        // Offline or already revoked — local clear is what matters.
+      }
+    }
     await clearSession();
   },
 };
