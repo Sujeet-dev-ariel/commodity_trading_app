@@ -280,6 +280,17 @@ export const requirementsApi = {
   },
 
   /**
+   * PATCH `/listings/:id/withdraw` — close one of your own requirements.
+   * Works for BUY requirements too (backend only checks ownership).
+   */
+  async withdraw(id: string | number, token: string): Promise<void> {
+    await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.withdraw(String(id))), {
+      method: "PATCH",
+      token,
+    });
+  },
+
+  /**
    * GET `/listings/:id` — single buyer-requirement detail
    * (backend: `router.get('/:id', listingController.getById)`).
    */

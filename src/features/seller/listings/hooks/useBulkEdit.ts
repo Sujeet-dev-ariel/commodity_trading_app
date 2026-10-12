@@ -63,6 +63,9 @@ export function useBulkEdit() {
     [rows],
   );
 
+  const activeRows = useMemo(() => rows.filter((r) => r.price !== null), [rows]);
+  const expiredRows = useMemo(() => rows.filter((r) => r.price === null), [rows]);
+
   function toggleSelect(id: string) {
     const row = rows.find((r) => r.id === id);
     if (!row || row.price === null) return;
@@ -71,7 +74,12 @@ export function useBulkEdit() {
     );
   }
 
-  function selectAll() {
+  function selectAll(ids?: readonly string[]) {
+    if (ids) {
+      const allowed = new Set(selectable.map((r) => r.id));
+      setSelected(ids.filter((id) => allowed.has(id)));
+      return;
+    }
     setSelected(selectable.map((r) => r.id));
   }
 
@@ -114,6 +122,10 @@ export function useBulkEdit() {
 
   return {
     rows,
+    activeRows,
+    expiredRows,
+    activeCount: activeRows.length,
+    expiredCount: expiredRows.length,
     selected,
     selectedCount: selected.length,
     bulkAmount,

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { AppTabBar, BUYER_BAR, SELLER_BAR } from "@/components/common/AppTabBar";
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { resolveBackendRole } from "@/core/auth/roleStore";
 import { ProfileRow } from "@/features/shared/profile/components/ProfileRow";
+import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
 import { useProfile, type ProfileRow as Row } from "@/features/shared/profile/hooks/useProfile";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { formatPhoneDisplay } from "@/core/utils/validation";
@@ -26,9 +26,16 @@ export function ProfileScreen() {
   const name = session?.user.firmName || session?.user.name || "Account";
   const initial = name.slice(0, 1).toUpperCase();
 
+  /** Tab screens live in the tab navigators — replace avoids stacking a tab over profile. */
+  const TAB_HREFS: ReadonlySet<string> = new Set(["/orders", "/trades", "/add-listing"]);
+
   function handleRow(row: Row) {
     if (row.href) {
-      router.push(row.href);
+      if (TAB_HREFS.has(row.href)) {
+        router.replace(row.href);
+      } else {
+        router.push(row.href);
+      }
       return;
     }
     setNotice(`${row.label} arrives in the next slice.`);
@@ -47,32 +54,6 @@ export function ProfileScreen() {
 
   // Profile lives in the root-level `(shared)` stack (outside the tab
   // navigators), so render the role's bottom bar here to keep it visible.
-  const barItems = role === "seller" ? SELLER_BAR : role === "buyer" ? BUYER_BAR : null;
-
-  /** Tab targets double as URL segments — `replace` avoids stacking tabs over profile. */
-  function goTab(target: string) {
-    switch (target) {
-      case "browse":
-        return router.replace("/browse");
-      case "trades":
-        return router.replace("/trades");
-      case "post-req":
-        return router.replace("/post-req");
-      case "freight":
-        return router.replace("/freight");
-      case "requirements":
-        return router.replace("/requirements");
-      case "orders":
-        return router.replace("/orders");
-      case "add-listing":
-        return router.replace("/add-listing");
-      case "transport":
-        return router.replace("/transport");
-      default:
-        return router.back();
-    }
-  }
-
   return (
     <View style={styles.screen}>
     <ScrollView
@@ -126,7 +107,7 @@ export function ProfileScreen() {
 
       <Button title={signingOut ? "Signing out…" : "Sign out"} variant="ghost" onPress={handleSignOut} />
     </ScrollView>
-    {barItems ? <AppTabBar items={barItems} active={null} onPress={goTab} /> : null}
+      <ProfileTabBar />
     </View>
   );
 }

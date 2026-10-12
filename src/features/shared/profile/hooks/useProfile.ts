@@ -4,7 +4,15 @@ export interface ProfileRow {
   key: string;
   label: string;
   /** Href of an implemented route, if any. */
-  href?: "/terms";
+  href?:
+    | "/account"
+    | "/payment-terms"
+    | "/firm-terms"
+    | "/orders"
+    | "/trades"
+    | "/preferences"
+    | "/bag-weight"
+    | "/add-listing";
   /** Small tag shown before the chevron (e.g. ToS status). */
   tag?: string;
   /** Non-interactive row (e.g. "Coming soon"). */
@@ -17,25 +25,30 @@ export interface ProfileRow {
  */
 export function useProfile(role: Role | null) {
   const main: ProfileRow[] = [
-    { key: "account", label: "Account" },
-    { key: "payment", label: "Payment terms" },
-    { key: "terms-status", label: "Terms of Service", href: "/terms", tag: "Accepted" },
-    { key: "trades", label: "Past trades" },
+    { key: "account", label: "Account", href: "/account" },
+    { key: "payment", label: "Payment terms", href: "/payment-terms" },
+    { key: "terms-status", label: "Terms of Service", href: "/firm-terms" },
+    {
+      key: "trades",
+      label: "Past trades",
+      href: role === "seller" ? "/orders" : "/trades",
+    },
     ...(role === "seller"
       ? [
-          { key: "listings", label: "My listings" },
-          { key: "bagweight", label: "Bag weight" },
-          { key: "template", label: "Saved supplier parse template", tag: "Coming soon", disabled: true },
+          { key: "listings", label: "My listings", href: "/add-listing" as const },
+          { key: "bagweight", label: "Bag weight", href: "/bag-weight" as const },
         ]
       : [{ key: "requirements", label: "My requirements" }]),
-    { key: "preferences", label: "Preferences" },
+    { key: "preferences", label: "Preferences", href: "/preferences" },
   ];
 
-  const share: ProfileRow[] = [{ key: "share", label: "Share with your friends" }];
+  const share: ProfileRow[] = [
+    { key: "share", label: "Share with your friends" },
+  ];
 
   const legal: ProfileRow[] = [
     { key: "privacy", label: "Privacy policy" },
-    { key: "terms", label: "Terms of Service", href: "/terms" },
+    { key: "terms", label: "Terms of Service", href: "/firm-terms" },
   ];
 
   return { main, share, legal };

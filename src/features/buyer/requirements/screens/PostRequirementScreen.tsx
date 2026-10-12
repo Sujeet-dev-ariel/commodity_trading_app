@@ -1,3 +1,4 @@
+import { BackButton } from "@/components/common/BackButton";
 import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
@@ -5,6 +6,7 @@ import { FormStatus } from "@/components/ui/FormStatus";
 import { usePostRequirement } from "@/features/buyer/requirements/hooks/usePostRequirement";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import { router } from "expo-router";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -69,9 +71,15 @@ export function PostRequirementScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.topRow}>
+          <BackButton
+            accessibilityLabel="Back to my requirements"
+            fallback="/post-req"
+          />
+          <ProfileButton />
+        </View>
         <View style={styles.header}>
           <Text style={styles.title}>Post requirement</Text>
-          <ProfileButton />
         </View>
         <Text style={styles.subtitle}>
           Tell sellers what you want to buy and at what target price.
@@ -153,6 +161,13 @@ export function PostRequirementScreen() {
         {success ? <FormStatus kind="success" message={success} /> : null}
 
         <Button title="Post requirement" onPress={submit} loading={isLoading} />
+        {success ? (
+          <Button
+            title="View my requirements"
+            variant="secondary"
+            onPress={() => router.back()}
+          />
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -169,6 +184,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   header: {
     flexDirection: "row",

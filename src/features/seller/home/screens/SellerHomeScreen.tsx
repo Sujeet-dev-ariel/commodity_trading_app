@@ -7,6 +7,7 @@ import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
 import { router } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -20,17 +21,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 /** Seller home (`isHome` in Seller App.html): today's listings dashboard. */
 export function SellerHomeScreen() {
   const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<"active" | "expired">("active");
   const {
     firmName,
-    rows,
+    activeRows,
+    expiredRows,
     liveCount,
     pricedCount,
+    expiredCount,
     expired,
     expiryLabel,
     isLoading,
     error,
     retry,
   } = useSellerHome();
+  const visibleRows = tab === "active" ? activeRows : expiredRows;
 
   function openListing(row: HomeRow) {
     router.push({
@@ -67,7 +72,7 @@ export function SellerHomeScreen() {
         </View>
       </View>
 
-      {expired ? (
+      {tab === "expired" && expiredRows.length > 0 ? (
         <View style={styles.expiredCard}>
           <Text style={styles.expiredTitle}>Prices cleared at 2:00 AM</Text>
           <Text style={styles.expiredBody}>
@@ -128,8 +133,47 @@ export function SellerHomeScreen() {
           <Button title="Retry" variant="secondary" onPress={retry} />
         </View>
       ) : (
-        <View style={styles.list}>
-          {rows.map((row) => (
+        <>
+          <View
+            style={styles.tabs}
+            accessibilityRole="tablist"
+            accessibilityLabel="Listing status tabs"
+          >
+            <Pressable
+              style={[styles.tab, tab === "active" && styles.tabActive]}
+              onPress={() => setTab("active")}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === "active" }}
+              accessibilityLabel={`Active listings, ${pricedCount}`}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  tab === "active" && styles.tabTextActive,
+                ]}
+              >
+                Active ({pricedCount})
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, tab === "expired" && styles.tabActive]}
+              onPress={() => setTab("expired")}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === "expired" }}
+              accessibilityLabel={`Expired listings, ${expiredCount}`}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  tab === "expired" && styles.tabTextActive,
+                ]}
+              >
+                Expired ({expiredCount})
+              </Text>
+            </Pressable>
+          </View>
+          <View style={styles.list}>
+            {visibleRows.map((row) => (
             <Pressable
               key={String(row.id)}
               style={styles.row}
@@ -153,12 +197,17 @@ export function SellerHomeScreen() {
               </Text>
             </Pressable>
           ))}
-          {rows.length === 0 ? (
+          {visibleRows.length === 0 ? (
             <Text style={styles.empty}>
-              No listings yet — add your first listing for today.
+              {liveCount === 0
+                ? "No listings yet — add your first listing for today."
+                : tab === "active"
+                  ? "No active listings — add today's prices to move expired listings here."
+                  : "No expired listings — everything is priced for today."}
             </Text>
           ) : null}
-        </View>
+          </View>
+        </>
       )}
     </ScrollView>
   );
@@ -267,6 +316,31 @@ const styles = StyleSheet.create({
   },
   actionFlex: {
     flex: 1,
+  },
+  tabs: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    borderRadius: 10,
+    paddingVertical: 9,
+  },
+  tabActive: {
+    backgroundColor: colors.card,
+    boxShadow: "0 1px 2px rgba(46,43,37,0.14)",
+  },
+  tabText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13.5,
+    color: colors.muted,
+  },
+  tabTextActive: {
+    color: colors.text,
   },
   list: {
     gap: spacing.sm,

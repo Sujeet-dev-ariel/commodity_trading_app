@@ -79,11 +79,11 @@ export function useSellerHome() {
   );
 
   const rows = useMemo(() => listings.map(toHomeRow), [listings]);
+  const activeRows = useMemo(() => rows.filter((r) => r.price !== null), [rows]);
+  const expiredRows = useMemo(() => rows.filter((r) => r.price === null), [rows]);
   const liveCount = rows.length;
-  const pricedCount = useMemo(
-    () => rows.filter((r) => r.price !== null).length,
-    [rows],
-  );
+  const pricedCount = activeRows.length;
+  const expiredCount = expiredRows.length;
   // At 2 AM prices clear: rows kept, all awaiting fresh prices.
   const expired = liveCount > 0 && pricedCount === 0;
   const expiryLabel = expired
@@ -93,8 +93,11 @@ export function useSellerHome() {
   return {
     firmName: session?.user?.firmName ?? "",
     rows,
+    activeRows,
+    expiredRows,
     liveCount,
     pricedCount,
+    expiredCount,
     expired,
     expiryLabel,
     isLoading,

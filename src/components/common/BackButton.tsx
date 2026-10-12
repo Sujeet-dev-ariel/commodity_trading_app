@@ -5,6 +5,8 @@ import { colors } from "@/theme/colors";
 interface BackButtonProps {
   /** Screen-reader label, e.g. "Back to dashboard". Defaults to "Back". */
   accessibilityLabel?: string;
+  /** Visible text. Defaults to "← Back". */
+  title?: string;
   /** Where to go when opened via deep link with no history to pop. */
   fallback?: Parameters<typeof router.replace>[0];
   /** Custom handler for multi-step flows (e.g. back to scan step). */
@@ -17,6 +19,7 @@ interface BackButtonProps {
  */
 export function BackButton({
   accessibilityLabel = "Back",
+  title = "← Back",
   fallback,
   onPress,
 }: BackButtonProps) {
@@ -43,7 +46,7 @@ export function BackButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >
-      <Text style={styles.backText}>← Back</Text>
+      <Text style={styles.backText}>{title}</Text>
     </Pressable>
   );
 }
