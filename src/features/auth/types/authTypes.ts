@@ -10,6 +10,16 @@ export interface User {
   tosAcceptedAt: string | null;
   /** Version number the user accepted (server is source of truth, integer). */
   tosAcceptedVersion: number | null;
+  /** Editable via PATCH /users/me — null until set. */
+  city: string | null;
+  /** Firm-level logistics/terms notes, PATCH /users/me. */
+  firmNotes: string | null;
+  /** Default payment terms in days, PATCH /users/me. */
+  defaultPaymentTerms: number | null;
+  /** Default bag weight in kg, PATCH /users/me. */
+  defaultWeightKg: number | null;
+  /** Account standing, e.g. `active` — server-managed, read-only. */
+  status: string | null;
 }
 
 export interface AuthSession {

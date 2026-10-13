@@ -1,27 +1,58 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Button } from "@/components/ui/Button";
+import { FormStatus } from "@/components/ui/FormStatus";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ProfileHeader } from "@/features/shared/profile/components/ProfileHeader";
 import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
+import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Firm default until the backend serves it (mirrors listing detail). */
-const DEFAULT_PAYMENT_TERMS = "10-15 days";
-
 /**
  * Payment terms screen (Profile → Payment terms): the seller's default
- * terms across listings. Local-only until the backend firm-profile
- * contract exists — per-listing overrides already send via listingsApi.
+ * terms in days across listings. Saved via `PATCH /users/me`
+ * (`defaultPaymentTerms`, a non-negative integer); per-listing overrides
+ * already send via listingsApi.
  */
 export function PaymentTermsScreen() {
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
-  const [terms, setTerms] = useState(DEFAULT_PAYMENT_TERMS);
+  const { profile, save, isSaving, saveError, saved } = useMyProfile();
+  const [days, setDays] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const syncedFromServer = useRef(false);
+  useEffect(() => {
+    if (profile && !syncedFromServer.current) {
+      syncedFromServer.current = true;
+      setDays(
+        profile.defaultPaymentTerms !== null
+          ? String(profile.defaultPaymentTerms)
+          : "",
+      );
+    }
+  }, [profile]);
 
   const name = session?.user.firmName || session?.user.name || "Account";
+
+  async function handleSave() {
+    const trimmed = days.trim();
+    if (trimmed === "") {
+      // Clears the default server-side (per-listing terms still apply).
+      setLocalError(null);
+      await save({ defaultPaymentTerms: null });
+      return;
+    }
+    if (!/^\d+$/.test(trimmed)) {
+      setLocalError("Enter whole days (e.g. 15), or clear to remove.");
+      return;
+    }
+    setLocalError(null);
+    await save({ defaultPaymentTerms: Number(trimmed) });
+  }
 
   return (
     <View style={styles.screen}>
@@ -41,16 +72,36 @@ export function PaymentTermsScreen() {
 
         <View style={styles.card}>
           <Text style={styles.helper}>
-            Your default terms across listings. Override per listing when
-            needed.
+            Your default payment terms in days across listings. Override per
+            listing when needed.
           </Text>
           <TextInput
             style={styles.input}
-            value={terms}
-            onChangeText={setTerms}
-            placeholder="e.g. 10-15 days"
+            value={days}
+            onChangeText={(v) => {
+              setDays(v);
+              setLocalError(null);
+            }}
+            placeholder="e.g. 15"
             placeholderTextColor={colors.muted}
-            accessibilityLabel="Default payment terms"
+            keyboardType="number-pad"
+            accessibilityLabel="Default payment terms in days"
+          />
+          {localError ? <Text style={styles.error}>{localError}</Text> : null}
+          {saveError ? (
+            <FormStatus kind="error" title="Could not save" message={saveError} />
+          ) : null}
+          {saved ? (
+            <FormStatus
+              kind="success"
+              title="Saved"
+              message="Your default payment terms are up to date."
+            />
+          ) : null}
+          <Button
+            title={isSaving ? "Saving…" : "Save changes"}
+            loading={isSaving}
+            onPress={handleSave}
           />
         </View>
       </ScrollView>
@@ -100,5 +151,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     color: colors.text,
+  },
+  error: {
+    fontSize: 13,
+    color: colors.danger,
   },
 });

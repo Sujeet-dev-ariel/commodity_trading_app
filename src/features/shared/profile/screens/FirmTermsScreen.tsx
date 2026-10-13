@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ProfileHeader } from "@/features/shared/profile/components/ProfileHeader";
 import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
+import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
@@ -12,25 +13,33 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Firm Terms of Service (Profile → Firm terms): the seller's own terms
- * shown to buyers on listings. Local-only until the backend firm-profile
- * contract exists — saved terms lock (they can only be added once).
+ * shown to buyers on listings. Saved via `PATCH /users/me` (`firmNotes`,
+ * up to 2000 characters server-side).
  */
 export function FirmTermsScreen() {
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
+  const { profile, save, isSaving, saveError, saved } = useMyProfile();
   const [terms, setTerms] = useState("");
-  const [saved, setSaved] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const syncedFromServer = useRef(false);
+  useEffect(() => {
+    if (profile && !syncedFromServer.current) {
+      syncedFromServer.current = true;
+      setTerms(profile.firmNotes ?? "");
+    }
+  }, [profile]);
 
   const name = session?.user.firmName || session?.user.name || "Account";
 
-  function handleAdd() {
+  async function handleSave() {
     if (!terms.trim()) {
-      setError("Write your terms first.");
+      setLocalError("Write your terms first.");
       return;
     }
-    setError(null);
-    setSaved(terms.trim());
+    setLocalError(null);
+    await save({ firmNotes: terms.trim() });
   }
 
   return (
@@ -51,35 +60,38 @@ export function FirmTermsScreen() {
 
         <View style={styles.card}>
           <Text style={styles.helper}>
-            Add your Terms of Service. Shown to buyers on your listings. This
-            can only be added once.
+            Add your Terms of Service. Shown to buyers on your listings.
           </Text>
           {saved ? (
             <FormStatus
               kind="success"
-              title="Terms added"
+              title="Terms saved"
               message="Buyers will see these on your listings."
             />
           ) : null}
+          {saveError ? (
+            <FormStatus kind="error" title="Could not save" message={saveError} />
+          ) : null}
           <TextInput
             style={[styles.input, styles.multiline]}
-            value={saved ?? terms}
+            value={terms}
             onChangeText={(v) => {
               setTerms(v);
-              setError(null);
+              setLocalError(null);
             }}
             placeholder="enter your Terms of Service..."
             placeholderTextColor={colors.muted}
             multiline
             numberOfLines={5}
             textAlignVertical="top"
-            editable={!saved}
             accessibilityLabel="Firm Terms of Service"
           />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {saved ? null : (
-            <Button title="Add Terms of Service" onPress={handleAdd} />
-          )}
+          {localError ? <Text style={styles.error}>{localError}</Text> : null}
+          <Button
+            title={isSaving ? "Saving…" : "Save Terms of Service"}
+            loading={isSaving}
+            onPress={handleSave}
+          />
         </View>
       </ScrollView>
       <ProfileTabBar />

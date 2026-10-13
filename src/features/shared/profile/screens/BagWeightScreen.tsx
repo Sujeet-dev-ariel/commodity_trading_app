@@ -1,27 +1,55 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Button } from "@/components/ui/Button";
+import { FormStatus } from "@/components/ui/FormStatus";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ProfileHeader } from "@/features/shared/profile/components/ProfileHeader";
 import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
+import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Fallback until the backend serves the seller's default bag weight. */
-const DEFAULT_BAG_WEIGHT = "30 KG";
-
 /**
  * Bag weight screen (Profile → Bag weight): the seller's default weight
- * used when a listing doesn't specify one. Local-only until the backend
- * firm-profile contract exists.
+ * in kg used when a listing doesn't specify one. Saved via
+ * `PATCH /users/me` (`defaultWeightKg`, a non-negative integer).
  */
 export function BagWeightScreen() {
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
-  const [weight, setWeight] = useState(DEFAULT_BAG_WEIGHT);
+  const { profile, save, isSaving, saveError, saved } = useMyProfile();
+  const [weight, setWeight] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const syncedFromServer = useRef(false);
+  useEffect(() => {
+    if (profile && !syncedFromServer.current) {
+      syncedFromServer.current = true;
+      setWeight(
+        profile.defaultWeightKg !== null ? String(profile.defaultWeightKg) : "",
+      );
+    }
+  }, [profile]);
 
   const name = session?.user.firmName || session?.user.name || "Account";
+
+  async function handleSave() {
+    const trimmed = weight.trim();
+    if (trimmed === "") {
+      // Clears the default server-side (listings then carry no weight).
+      setLocalError(null);
+      await save({ defaultWeightKg: null });
+      return;
+    }
+    if (!/^\d+$/.test(trimmed)) {
+      setLocalError("Enter whole kg (e.g. 30), or clear to remove.");
+      return;
+    }
+    setLocalError(null);
+    await save({ defaultWeightKg: Number(trimmed) });
+  }
 
   return (
     <View style={styles.screen}>
@@ -41,15 +69,35 @@ export function BagWeightScreen() {
 
         <View style={styles.card}>
           <Text style={styles.helper}>
-            Default weight used when a listing doesn&apos;t specify one.
+            Default weight in kg used when a listing doesn&apos;t specify one.
           </Text>
           <TextInput
             style={styles.input}
             value={weight}
-            onChangeText={setWeight}
-            placeholder="e.g. 30 KG"
+            onChangeText={(v) => {
+              setWeight(v);
+              setLocalError(null);
+            }}
+            placeholder="e.g. 30"
             placeholderTextColor={colors.muted}
-            accessibilityLabel="Default bag weight"
+            keyboardType="number-pad"
+            accessibilityLabel="Default bag weight in kg"
+          />
+          {localError ? <Text style={styles.error}>{localError}</Text> : null}
+          {saveError ? (
+            <FormStatus kind="error" title="Could not save" message={saveError} />
+          ) : null}
+          {saved ? (
+            <FormStatus
+              kind="success"
+              title="Saved"
+              message="Your default bag weight is up to date."
+            />
+          ) : null}
+          <Button
+            title={isSaving ? "Saving…" : "Save changes"}
+            loading={isSaving}
+            onPress={handleSave}
           />
         </View>
       </ScrollView>
@@ -99,5 +147,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     color: colors.text,
+  },
+  error: {
+    fontSize: 13,
+    color: colors.danger,
   },
 });

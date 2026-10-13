@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
@@ -8,6 +8,8 @@ import { resolveBackendRole } from "@/core/auth/roleStore";
 import { ProfileRow } from "@/features/shared/profile/components/ProfileRow";
 import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
 import { useProfile, type ProfileRow as Row } from "@/features/shared/profile/hooks/useProfile";
+import { profileToSessionPartial } from "@/features/shared/profile/hooks/useMyProfile";
+import { profileApi } from "@/features/shared/profile/api/profileApi";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { formatPhoneDisplay } from "@/core/utils/validation";
 import { colors } from "@/theme/colors";
@@ -16,12 +18,32 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Common profile (`isProfile` in both prototypes), parameterized by role. */
 export function ProfileScreen() {
-  const { session, signOut } = useAuth();
+  const { session, signOut, runWithAuth, mergeSessionUser } = useAuth();
   const role = resolveBackendRole(session?.user);
   const { main, share, legal } = useProfile(role);
   const insets = useSafeAreaInsets();
   const [notice, setNotice] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  // Refresh the cached profile when returning from an edit screen
+  // (Account, Payment terms…) so the identity header stays current.
+  // Silent: the cached session still renders when offline.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const fresh = await runWithAuth((token) => profileApi.getMe(token));
+          if (!cancelled) await mergeSessionUser(profileToSessionPartial(fresh));
+        } catch {
+          // Offline/transient — keep the cached session.
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [runWithAuth, mergeSessionUser]),
+  );
 
   const name = session?.user.firmName || session?.user.name || "Account";
   const initial = name.slice(0, 1).toUpperCase();

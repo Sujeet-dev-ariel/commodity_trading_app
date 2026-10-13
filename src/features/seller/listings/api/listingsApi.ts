@@ -5,7 +5,7 @@ import {
   LISTINGS_ENDPOINTS,
   apiUrl,
 } from "@/core/api/endpoints";
-import type { Category, Listing } from "@/types/domain";
+import type { Category, Listing, ListingStatus } from "@/types/domain";
 
 /**
  * Real backend: `router.use(authenticate)` — every call needs the session token.
@@ -333,7 +333,30 @@ function unwrapList(raw: unknown): Record<string, unknown>[] {
   return [];
 }
 
-/** Coerce one backend listing into the app `Listing` domain shape. */
+/**
+ * Backend-exact owner id (`D:\Tradding_backend\prisma\schema.prisma` model
+ * Listing, `listing.service serializeListing` spreads the row verbatim):
+ * flat `userId` UUID on every row, plus nested `user.id` on `getById`.
+ */
+function pickOwnerId(obj: Record<string, unknown>): string | undefined {
+  const flat = toStringId(obj["userId"]);
+  if (flat) return flat;
+  const user = obj["user"];
+  if (user !== null && typeof user === "object") {
+    const nested = user as Record<string, unknown>;
+    const nestedId = toStringId(nested["id"] ?? nested["userId"]);
+    if (nestedId) return nestedId;
+  }
+  return undefined;
+}
+
+/**
+ * Coerce one backend listing (`listing.service serializeListing` + `user`
+ * include) into the app `Listing` shape. Exact backend fields: `id` (uuid),
+ * `itemName` (derived from commodity), `quality`, `weightKg`, `price`
+ * (number|null), `userId`, `categoryId`/`commodityId` (uuids, resolved via
+ * catalog maps), `status` (backend enum), `user: { firmName, name, ... }`.
+ */
 function normalizeListing(
   obj: Record<string, unknown>,
   maps?: {
@@ -342,51 +365,101 @@ function normalizeListing(
     commodityToCategory: Map<string, string>;
   },
 ): Listing | null {
-  const id =
-    toStringId(obj["id"]) ??
-    toStringId(obj["_id"]) ??
-    toStringId(obj["listingId"]);
-  // Backend derives `itemName` from the commodity (e.g. "QA Chana Dal Standard").
+  const id = toStringId(obj["id"]);
+  // Backend `itemName` is always derived from `commodity.name` (create +
+  // bulk-confirm); catalog map is only a fallback for stale rows.
   const item = pickItem(obj, maps?.commodityById);
   if (!id || !item) return null;
-  const weightKg = pickNumber(obj, "weightKg", "weight_kg");
+  const weightKg = pickNumber(obj, "weightKg");
   const weight =
     pickString(obj, "weight", "weightPerBag", "bagWeight") ||
     (weightKg != null ? `${weightKg}KG` : "");
   const seller = pickSeller(obj);
   const category =
     pickCategory(obj, maps?.categoryById, maps?.commodityToCategory) || "Rice";
+  // Backend `VALID_STATUSES`: active, price_expired, na, withdrawn, traded.
+  // Kept verbatim so the Active/Expired tabs split on the real lifecycle.
+  const rawStatus = pickString(obj, "status").toLowerCase();
+  const status: ListingStatus | undefined =
+    rawStatus === "active" ||
+    rawStatus === "price_expired" ||
+    rawStatus === "na" ||
+    rawStatus === "withdrawn" ||
+    rawStatus === "traded"
+      ? rawStatus
+      : undefined;
+  const sellerId = pickOwnerId(obj);
   return {
-    id: Number.isNaN(Number(id)) ? id : Number(id),
+    id,
     category: category as Category,
     item,
-    quality: pickString(obj, "quality", "grade", "variant"),
+    quality: pickString(obj, "quality"),
     weight,
     seller,
-    price: pickNumber(obj, "price", "pricePerBag", "rate") ?? 0,
+    price: pickNumber(obj, "price") ?? 0,
+    ...(status ? { status } : {}),
+    ...(sellerId ? { sellerId } : {}),
   } as Listing;
 }
 
 function normalizeCreated(raw: unknown): CreatedListing {
   const data = unwrapOne(raw);
-  const id =
-    toStringId(data["id"]) ??
-    toStringId(data["_id"]) ??
-    toStringId(data["listingId"]);
+  const id = toStringId(data["id"]);
   // Backend derives `itemName` from the commodity — it is never a client input.
   const item = pickItem(data);
-  const price = pickNumber(data, "price", "pricePerBag", "rate");
+  const price = pickNumber(data, "price");
   if (!id || !item) {
     throw new ApiError(500, "Unexpected server response to listing publish.");
   }
   return { id, item, price };
 }
 
+/**
+ * Active/Expired split for the seller tabs. Backend `status` is the source
+ * of truth: only `"active"` is Active; `"price_expired"` and `"na"` (shell
+ * listing without price) are Expired. Payloads without a recognized status
+ * fall back to the priced rule (`price > 0`).
+ */
+export function isActiveListing(l: Pick<Listing, "status" | "price">): boolean {
+  if (l.status) return l.status === "active";
+  return l.price > 0;
+}
+
 export const listingsApi = {
-  /** GET `/listings?side=SELL` — live market listings for buyer browse. */
+  /** GET `/listings?side=SELL` (default `status=active`) — market listings for buyer browse. */
   async list(token: string): Promise<Listing[]> {
     const [raw, maps] = await Promise.all([
       apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.list("SELL")), { token }),
+      fetchCatalogMaps(token),
+    ]);
+    const out: Listing[] = [];
+    for (const obj of unwrapList(raw)) {
+      const l = normalizeListing(obj, maps);
+      if (l) out.push(l);
+    }
+    return out;
+  },
+
+  /**
+   * Seller dashboard (`add-listing` tab): the logged-in seller's own
+   * listings. Backend (`listing.service getListings`): a seller calling with
+   * `side=SELL` and NO `userId` gets `effectiveUserId = own id` — own rows
+   * only, never pass another seller's `userId` (403). `status` defaults to
+   * `active` server-side, so request `active,price_expired,na` explicitly —
+   * otherwise the Expired tab is always empty. `limit=100` (backend max,
+   * default is 20) so the dashboard isn't truncated.
+   */
+  async listMine(token: string): Promise<Listing[]> {
+    const [raw, maps] = await Promise.all([
+      apiFetch<unknown>(
+        apiUrl(
+          LISTINGS_ENDPOINTS.list("SELL", {
+            status: "active,price_expired,na",
+            limit: 100,
+          }),
+        ),
+        { token },
+      ),
       fetchCatalogMaps(token),
     ]);
     const out: Listing[] = [];

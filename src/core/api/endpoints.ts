@@ -13,13 +13,34 @@ export const TOS_ENDPOINTS = {
   status: "/tos/status",
 } as const;
 
+export const USERS_ENDPOINTS = {
+  me: "/users/me",
+} as const;
+
 export const LISTINGS_ENDPOINTS = {
   create: "/listings",
   bulkPrice: "/listings/bulk-price",
   template: "/listings/template",
   bulkUpload: "/listings/bulk-upload",
   bulkConfirm: "/listings/bulk-confirm",
-  list: (side: "BUY" | "SELL") => `/listings?side=${side}`,
+  /**
+   * Backend `GET /listings` (`routes/listings.js` → `listing.service.getListings`):
+   * `side` required (`SELL`/`BUY`); `status` comma-separated subset of
+   * `active,price_expired,na,withdrawn,traded` (default `active` when omitted);
+   * `limit` 1–100 (default 20); `userId` UUID — sellers must NOT pass another
+   * seller's id (403), and omitting it defaults to the caller's own rows when
+   * the caller holds the side's role (seller→SELL, buyer→BUY).
+   */
+  list: (
+    side: "BUY" | "SELL",
+    params?: { status?: string; limit?: number; userId?: string },
+  ) => {
+    const q = new URLSearchParams({ side });
+    if (params?.status) q.set("status", params.status);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.userId) q.set("userId", params.userId);
+    return `/listings?${q.toString()}`;
+  },
   byId: (id: string) => `/listings/${id}`,
   withdraw: (id: string) => `/listings/${id}/withdraw`,
 } as const;

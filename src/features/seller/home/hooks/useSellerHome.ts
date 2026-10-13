@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { listingsApi } from "@/features/seller/listings/api/listingsApi";
+import { listingsApi, isActiveListing } from "@/features/seller/listings/api/listingsApi";
 import type { Listing } from "@/types/domain";
 
 export interface HomeRow {
@@ -10,11 +10,13 @@ export interface HomeRow {
   category: string;
   item: string;
   weight: string;
-  /** Null = awaiting today's price (backend sends 0/missing). */
+  /** Null = no price on the payload (backend sends 0/missing). */
   price: number | null;
+  /** Backend `status` split (`"active"` vs `"price_expired"`). */
+  active: boolean;
 }
 
-/** `0`/missing prices are "awaiting today's price", never a real ₹0 quote. */
+/** `0`/missing prices are "no price", never a real ₹0 quote. */
 function toHomeRow(l: Listing): HomeRow {
   return {
     id: l.id as number | string,
@@ -22,6 +24,7 @@ function toHomeRow(l: Listing): HomeRow {
     item: l.item,
     weight: l.weight,
     price: l.price > 0 ? l.price : null,
+    active: isActiveListing(l),
   };
 }
 
@@ -37,8 +40,11 @@ function timeUntil2AM(now = new Date()): string {
 }
 
 /**
- * Seller home data (Seller App.html `isHome`): today's own listings via
- * `GET /listings?side=SELL`, live/priced counts, and the 2 AM expiry state.
+ * Seller home data (Seller App.html `isHome`): the logged-in seller's own
+ * listings via `GET /listings?side=SELL&status=active,price_expired,na`
+ * (backend defaults `userId` to the caller for the seller role — own rows
+ * only), split by backend `status` into Active (`"active"`) vs Expired
+ * (`"price_expired"` / `"na"` shell listings awaiting price).
  */
 export function useSellerHome() {
   const { session, runWithAuth } = useAuth();
@@ -52,7 +58,8 @@ export function useSellerHome() {
     try {
       // runWithAuth refreshes the 15m access token on 401 and retries once,
       // so reopening the app after a while never shows "unauthorized".
-      setListings(await runWithAuth((token) => listingsApi.list(token)));
+      // listMine = seller-associated rows only; status drives Active/Expired.
+      setListings(await runWithAuth((token) => listingsApi.listMine(token)));
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not load today's listings"));
     } finally {
@@ -79,12 +86,13 @@ export function useSellerHome() {
   );
 
   const rows = useMemo(() => listings.map(toHomeRow), [listings]);
-  const activeRows = useMemo(() => rows.filter((r) => r.price !== null), [rows]);
-  const expiredRows = useMemo(() => rows.filter((r) => r.price === null), [rows]);
+  const activeRows = useMemo(() => rows.filter((r) => r.active), [rows]);
+  const expiredRows = useMemo(() => rows.filter((r) => !r.active), [rows]);
   const liveCount = rows.length;
   const pricedCount = activeRows.length;
   const expiredCount = expiredRows.length;
-  // At 2 AM prices clear: rows kept, all awaiting fresh prices.
+  // Every listing price-expired (e.g. after the 2 AM reset): rows kept,
+  // all awaiting fresh prices.
   const expired = liveCount > 0 && pricedCount === 0;
   const expiryLabel = expired
     ? "Expired at 2 AM"

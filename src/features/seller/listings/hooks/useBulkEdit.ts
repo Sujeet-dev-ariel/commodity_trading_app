@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { listingsApi } from "@/features/seller/listings/api/listingsApi";
+import { listingsApi, isActiveListing } from "@/features/seller/listings/api/listingsApi";
 
 export interface BulkRow {
   id: string;
   item: string;
   category: string;
   weight: string;
-  /** Null = N/A, skipped automatically. */
+  /** Null = no price on the payload, shown as N/A. */
   price: number | null;
+  /** Backend `status` split (`"active"` vs `"price_expired"`). */
+  active: boolean;
 }
 
 /**
- * Seller bulk price edit (`isBulk` in Seller App.html): select priced rows,
+ * Seller bulk price edit (`isBulk` in Seller App.html): select active rows,
  * apply −50/+50 or a custom delta via `PATCH /listings/bulk-price`.
  */
 export function useBulkEdit() {
@@ -30,7 +32,9 @@ export function useBulkEdit() {
     setIsLoading(true);
     setError(null);
     try {
-      const fetched = await runWithAuth((token) => listingsApi.list(token));
+      // Own listings incl. price_expired (backend defaults to active-only,
+      // so listMine requests active,price_expired,na explicitly).
+      const fetched = await runWithAuth((token) => listingsApi.listMine(token));
       setRows(
         fetched.map((l) => ({
           id: String(l.id),
@@ -38,6 +42,7 @@ export function useBulkEdit() {
           category: l.category,
           weight: l.weight,
           price: l.price > 0 ? l.price : null,
+          active: isActiveListing(l),
         })),
       );
       setSelected([]);
@@ -58,17 +63,14 @@ export function useBulkEdit() {
     };
   }, [load]);
 
-  const selectable = useMemo(
-    () => rows.filter((r) => r.price !== null),
-    [rows],
-  );
+  const selectable = useMemo(() => rows.filter((r) => r.active), [rows]);
 
-  const activeRows = useMemo(() => rows.filter((r) => r.price !== null), [rows]);
-  const expiredRows = useMemo(() => rows.filter((r) => r.price === null), [rows]);
+  const activeRows = useMemo(() => rows.filter((r) => r.active), [rows]);
+  const expiredRows = useMemo(() => rows.filter((r) => !r.active), [rows]);
 
   function toggleSelect(id: string) {
     const row = rows.find((r) => r.id === id);
-    if (!row || row.price === null) return;
+    if (!row || !row.active) return;
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
     );
@@ -95,7 +97,7 @@ export function useBulkEdit() {
       // Backend `delta` mode applies the +/- server-side atomically —
       // send ids + delta, not client-computed absolute prices.
       const ids = rows
-        .filter((r) => selected.includes(r.id) && r.price !== null)
+        .filter((r) => selected.includes(r.id) && r.active)
         .map((r) => r.id);
       if (ids.length > 0) {
         await runWithAuth((token) =>

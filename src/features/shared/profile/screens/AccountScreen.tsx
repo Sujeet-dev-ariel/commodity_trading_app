@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -17,6 +17,7 @@ import { formatPhoneDisplay, normalizeIndianPhone } from "@/core/utils/validatio
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ProfileHeader } from "@/features/shared/profile/components/ProfileHeader";
 import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
+import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
@@ -43,18 +44,33 @@ function AvatarGlyph({ size = 22 }: { size?: number }) {
 
 /**
  * Account screen (opened from Profile → Account): identity card with name,
- * firm, verified phone and city. Fields are local-only until the backend
- * profile-update contract exists — no save endpoint is called yet.
+ * firm, verified phone and city. Edits save via `PATCH /users/me`
+ * (name/firmName/city); the verified phone is the login identity and can
+ * only change through OTP re-verification.
  */
 export function AccountScreen() {
   const { session } = useAuth();
   const role = resolveBackendRole(session?.user);
   const insets = useSafeAreaInsets();
   const [notice, setNotice] = useState<string | null>(null);
+  const { profile, save, isSaving, saveError, saved } = useMyProfile();
 
   const [name, setName] = useState(session?.user.name ?? "");
   const [firmName, setFirmName] = useState(session?.user.firmName ?? "");
-  const [city, setCity] = useState("");
+  const [city, setCity] = useState(session?.user.city ?? "");
+
+  // Fill in server values on first load (e.g. city set on another
+  // device). Skipped once the user starts typing so edits are never
+  // clobbered by a late response.
+  const syncedFromServer = useRef(false);
+  useEffect(() => {
+    if (profile && !syncedFromServer.current) {
+      syncedFromServer.current = true;
+      setName(profile.name ?? "");
+      setFirmName(profile.firmName ?? "");
+      setCity(profile.city ?? "");
+    }
+  }, [profile]);
 
   const [showChangeNumber, setShowChangeNumber] = useState(false);
   const [newPhone, setNewPhone] = useState("");
@@ -229,6 +245,24 @@ export function AccountScreen() {
               accessibilityLabel="City"
             />
           </View>
+
+          {saveError ? (
+            <FormStatus kind="error" title="Could not save" message={saveError} />
+          ) : null}
+          {saved ? (
+            <FormStatus
+              kind="success"
+              title="Saved"
+              message="Your account details are up to date."
+            />
+          ) : null}
+          <Button
+            title={isSaving ? "Saving…" : "Save changes"}
+            loading={isSaving}
+            onPress={() =>
+              save({ name: name.trim(), firmName: firmName.trim(), city: city.trim() })
+            }
+          />
 
           <Pressable
             style={styles.switchButton}

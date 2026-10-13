@@ -45,7 +45,7 @@ export function BulkEditScreen() {
   } = useBulkEdit();
   const visibleRows = tab === "active" ? activeRows : expiredRows;
   const visibleSelectableIds = useMemo(
-    () => visibleRows.filter((r) => r.price !== null).map((r) => r.id),
+    () => visibleRows.filter((r) => r.active).map((r) => r.id),
     [visibleRows],
   );
 
@@ -119,7 +119,7 @@ export function BulkEditScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
           {visibleRows.map((row) => {
-            const disabled = row.price === null;
+            const disabled = !row.active;
             const isSelected = selected.includes(row.id);
             return (
               <Pressable
@@ -153,14 +153,14 @@ export function BulkEditScreen() {
           {visibleRows.length === 0 ? (
             <Text style={styles.note}>
               {tab === "active"
-                ? "No active listings — price your expired listings first."
-                : "No expired listings — everything is priced for today."}
+                ? "No active listings — everything is expired."
+                : "No expired listings — everything is active."}
             </Text>
           ) : (
             <Text style={styles.note}>
               {tab === "active"
                 ? "Select listings, then apply a price change to all of them."
-                : "Expired listings have no price — delta edits need a price first, so these rows are skipped."}
+                : "Expired listings are read-only here — price changes apply to active listings."}
             </Text>
           )}
         </ScrollView>

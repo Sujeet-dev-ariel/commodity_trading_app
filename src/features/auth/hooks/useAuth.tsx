@@ -12,7 +12,7 @@ import { AppState } from "react-native";
 import { getAuthStatus, type AuthStatus } from "@/core/auth/authGuards";
 import { authService } from "@/core/auth/authService";
 import { ApiError, isUnauthorizedError } from "@/core/api/client";
-import type { AuthSession } from "@/features/auth/types/authTypes";
+import type { AuthSession, User } from "@/features/auth/types/authTypes";
 
 interface AuthContextValue {
   session: AuthSession | null;
@@ -22,6 +22,11 @@ interface AuthContextValue {
   confirmLoginOtp: (phone: string, code: string) => Promise<void>;
   acceptTerms: (version: number) => Promise<void>;
   signOut: () => Promise<void>;
+  /**
+   * Merge server-fresh profile fields into the cached session user
+   * (after GET/PATCH /users/me) and persist. Never touches tokens.
+   */
+  mergeSessionUser: (partial: Partial<User>) => Promise<void>;
   /**
    * Runs an authenticated request with the current access token. On a 401
    * (access token expired — ~15m lifetime), refreshes once via
@@ -139,6 +144,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, []);
 
+  const mergeSessionUser = useCallback(async (partial: Partial<User>) => {
+    const current = sessionRef.current;
+    if (!current) return;
+    const next = await authService.mergeSessionUser(current, partial);
+    setSession(next);
+  }, []);
+
   const runWithAuth = useCallback(
     async <T,>(fn: (token: string) => Promise<T>): Promise<T> => {
       const current = sessionRef.current;
@@ -191,9 +203,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       confirmLoginOtp,
       acceptTerms,
       signOut,
+      mergeSessionUser,
       runWithAuth,
     }),
-    [session, isLoading, confirmLoginOtp, acceptTerms, signOut, runWithAuth],
+    [session, isLoading, confirmLoginOtp, acceptTerms, signOut, mergeSessionUser, runWithAuth],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

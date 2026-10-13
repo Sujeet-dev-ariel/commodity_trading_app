@@ -1,7 +1,11 @@
 import { ApiError } from "@/core/api/client";
 import { authApi } from "@/features/auth/api/authApi";
 import { tosApi } from "@/features/auth/api/tosApi";
-import type { AuthSession, TosVersion } from "@/features/auth/types/authTypes";
+import type {
+  AuthSession,
+  TosVersion,
+  User,
+} from "@/features/auth/types/authTypes";
 import { clearSession, loadSession, saveSession } from "./authSession";
 
 /**
@@ -130,5 +134,22 @@ export const authService = {
       }
     }
     await clearSession();
+  },
+
+  /**
+   * Merge server-fresh profile fields (GET/PATCH /users/me) into the
+   * cached session user and persist. Screens call this after a profile
+   * fetch/save so headers/identity stay current without re-login.
+   */
+  async mergeSessionUser(
+    session: AuthSession,
+    partial: Partial<User>,
+  ): Promise<AuthSession> {
+    const updated: AuthSession = {
+      ...session,
+      user: { ...session.user, ...partial },
+    };
+    await saveSession(updated);
+    return updated;
   },
 };

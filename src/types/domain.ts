@@ -4,15 +4,27 @@ export type Role = "buyer" | "seller";
 
 export type Category = "Besan" | "Dal" | "Matar" | "Chana" | "Rajma" | "Rice";
 
+/** Backend listing lifecycle (`status` in `GET /listings` — `listing.service.VALID_STATUSES`). */
+export type ListingStatus =
+  | "active"
+  | "price_expired"
+  | "na"
+  | "withdrawn"
+  | "traded";
+
 /** Market listing (buyer browse/home). Price is per-bag rupees. */
 export interface Listing {
-  id: number;
+  id: number | string;
   category: Category;
   item: string;
   quality: string;
   weight: string;
   seller: string;
   price: number;
+  /** Backend `status`; undefined when the payload omits it (price fallback applies). */
+  status?: ListingStatus;
+  /** Owner/seller user id when the payload carries it — used to scope the seller dashboard to own listings. */
+  sellerId?: string;
 }
 
 /** Seller's own listing (dashboard). `price: null` = awaiting today's price. */

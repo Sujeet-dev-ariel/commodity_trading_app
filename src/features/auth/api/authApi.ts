@@ -58,6 +58,17 @@ function normalizeUser(raw: unknown): User {
     }
     return null;
   };
+  /** Optional integer columns (may arrive as number, numeric string, or null). */
+  const pickInt = (...keys: string[]): number | null => {
+    for (const k of keys) {
+      const v = u[k];
+      if (typeof v === "number" && Number.isInteger(v) && v >= 0) return v;
+      if (typeof v === "string" && v.trim() !== "" && Number.isInteger(Number(v)) && Number(v) >= 0) {
+        return Number(v);
+      }
+    }
+    return null;
+  };
   const id = pick("id", "_id", "userId", "sub") ?? "";
   const phone = pick("phone", "phoneNumber", "mobile", "mobileNumber") ?? "";
   const name = pick("name", "fullName", "displayName", "username") ?? "";
@@ -94,6 +105,11 @@ function normalizeUser(raw: unknown): User {
     roles,
     tosAcceptedAt: typeof tosRaw === "string" && tosRaw ? tosRaw : null,
     tosAcceptedVersion,
+    city: pick("city", "town", "mandi"),
+    firmNotes: pick("firmNotes", "firm_notes", "notes"),
+    defaultPaymentTerms: pickInt("defaultPaymentTerms", "default_payment_terms"),
+    defaultWeightKg: pickInt("defaultWeightKg", "default_weight_kg"),
+    status: pick("status", "accountStatus"),
   };
 }
 
