@@ -39,12 +39,17 @@ export interface VerifyOtpResult {
   user: User;
 }
 
-/** Current Terms of Service document served by `GET /tos/current`. */
+/**
+ * Current Terms of Service version served by `GET /tos-versions/current`.
+ * Backend-exact (`tosVersion.service`): the document lives at `termsUrl` /
+ * `privacyUrl` — there is no inline title/content body.
+ */
 export interface TosVersion {
   /** Integer version, e.g. `2` — `POST /tos/accept` requires an integer. */
   version: number;
-  title: string | null;
-  content: string;
+  termsUrl: string | null;
+  privacyUrl: string | null;
+  effectiveDate: string | null;
 }
 
 /** Acceptance state served by `GET /tos/status`. */

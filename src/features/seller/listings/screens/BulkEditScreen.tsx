@@ -18,7 +18,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Seller bulk price edit (`isBulk` in Seller App.html): checkbox rows,
- * −50/+50/custom deltas, saved via `PATCH /listings/bulk-price`.
+ * −50/+50/custom deltas for active listings (delta mode) and absolute
+ * prices for expired listings (set-many mode, reactivates them),
+ * saved via `PATCH /listings/bulk-price`.
  */
 export function BulkEditScreen() {
   const insets = useSafeAreaInsets();
@@ -30,13 +32,21 @@ export function BulkEditScreen() {
     expiredCount,
     selected,
     selectedCount,
+    selectedActiveCount,
+    selectedExpiredCount,
     bulkAmount,
     setBulkAmount,
+    expiredPrices,
+    setExpiredPrice,
+    setManyReady,
     toggleSelect,
     selectAll,
     clear,
     applyDelta,
     applyTypedAmount,
+    shiftExpiredDrafts,
+    applyExpiredTypedAmount,
+    applySetMany,
     isLoading,
     isSaving,
     error,
@@ -45,7 +55,7 @@ export function BulkEditScreen() {
   } = useBulkEdit();
   const visibleRows = tab === "active" ? activeRows : expiredRows;
   const visibleSelectableIds = useMemo(
-    () => visibleRows.filter((r) => r.active).map((r) => r.id),
+    () => visibleRows.map((r) => r.id),
     [visibleRows],
   );
 
@@ -119,16 +129,48 @@ export function BulkEditScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
           {visibleRows.map((row) => {
-            const disabled = !row.active;
             const isSelected = selected.includes(row.id);
+            if (!row.active) {
+              const draft = expiredPrices[row.id] ?? "";
+              return (
+                <View key={row.id} style={styles.row}>
+                  <Pressable
+                    style={[styles.box, isSelected && styles.boxChecked]}
+                    onPress={() => toggleSelect(row.id)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isSelected }}
+                    accessibilityLabel={`Select ${row.item}`}
+                  >
+                    {isSelected ? <Text style={styles.check}>✓</Text> : null}
+                  </Pressable>
+                  <View style={styles.rowMain}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>
+                      {row.item}
+                    </Text>
+                    <Text style={styles.muted} numberOfLines={1}>
+                      {row.category} · {row.weight} ·{" "}
+                      {row.price === null ? "N/A" : priceLabel(row.price)}
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={styles.priceInput}
+                    placeholder="New ₹"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="numeric"
+                    value={draft}
+                    onChangeText={(v) => setExpiredPrice(row.id, v)}
+                    accessibilityLabel={`New price for ${row.item}`}
+                  />
+                </View>
+              );
+            }
             return (
               <Pressable
                 key={row.id}
-                style={[styles.row, disabled && styles.rowDisabled]}
+                style={styles.row}
                 onPress={() => toggleSelect(row.id)}
-                disabled={disabled}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: isSelected, disabled }}
+                accessibilityState={{ checked: isSelected }}
                 accessibilityLabel={`${row.item} ${row.price === null ? "no price" : priceLabel(row.price)}`}
               >
                 <View
@@ -160,7 +202,7 @@ export function BulkEditScreen() {
             <Text style={styles.note}>
               {tab === "active"
                 ? "Select listings, then apply a price change to all of them."
-                : "Expired listings are read-only here — price changes apply to active listings."}
+                : "Select expired listings, adjust with −50/+50 or type today’s price, then set prices to reactivate them."}
             </Text>
           )}
         </ScrollView>
@@ -170,42 +212,97 @@ export function BulkEditScreen() {
         style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}
       >
         {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
-        <View style={styles.deltaRow}>
-          <View style={styles.selectFlex}>
+        {tab === "active" ? (
+          <>
+            <View style={styles.deltaRow}>
+              <View style={styles.selectFlex}>
+                <Button
+                  title="− 50"
+                  variant="secondary"
+                  disabled={selectedActiveCount === 0 || isSaving}
+                  loading={false}
+                  onPress={() => applyDelta(-50)}
+                />
+              </View>
+              <View style={styles.selectFlex}>
+                <Button
+                  title="+ 50"
+                  variant="secondary"
+                  disabled={selectedActiveCount === 0 || isSaving}
+                  onPress={() => applyDelta(50)}
+                />
+              </View>
+            </View>
+            <View style={styles.deltaRow}>
+              <TextInput
+                style={[styles.input, styles.amountInput]}
+                placeholder="Custom amount, e.g. -25"
+                placeholderTextColor={colors.muted}
+                keyboardType="numeric"
+                value={bulkAmount}
+                onChangeText={setBulkAmount}
+              />
+              <View style={styles.applyButton}>
+                <Button
+                  title={isSaving ? "Saving…" : "Apply"}
+                  disabled={selectedActiveCount === 0 || isSaving}
+                  onPress={applyTypedAmount}
+                />
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.deltaRow}>
+              <View style={styles.selectFlex}>
+                <Button
+                  title="− 50"
+                  variant="secondary"
+                  disabled={selectedExpiredCount === 0 || isSaving}
+                  loading={false}
+                  onPress={() => shiftExpiredDrafts(-50)}
+                />
+              </View>
+              <View style={styles.selectFlex}>
+                <Button
+                  title="+ 50"
+                  variant="secondary"
+                  disabled={selectedExpiredCount === 0 || isSaving}
+                  onPress={() => shiftExpiredDrafts(50)}
+                />
+              </View>
+            </View>
+            <View style={styles.deltaRow}>
+              <TextInput
+                style={[styles.input, styles.amountInput]}
+                placeholder="Custom amount, e.g. -25"
+                placeholderTextColor={colors.muted}
+                keyboardType="numeric"
+                value={bulkAmount}
+                onChangeText={setBulkAmount}
+              />
+              <View style={styles.applyButton}>
+                <Button
+                  title="Apply"
+                  disabled={selectedExpiredCount === 0 || isSaving}
+                  onPress={applyExpiredTypedAmount}
+                />
+              </View>
+            </View>
             <Button
-              title="− 50"
-              variant="secondary"
-              disabled={selectedCount === 0 || isSaving}
-              loading={false}
-              onPress={() => applyDelta(-50)}
+              title={
+                isSaving
+                  ? "Saving…"
+                  : selectedExpiredCount === 0
+                    ? "Set prices"
+                    : `Set prices (${selectedExpiredCount})`
+              }
+              disabled={!setManyReady || isSaving}
+              loading={isSaving}
+              onPress={applySetMany}
             />
-          </View>
-          <View style={styles.selectFlex}>
-            <Button
-              title="+ 50"
-              variant="secondary"
-              disabled={selectedCount === 0 || isSaving}
-              onPress={() => applyDelta(50)}
-            />
-          </View>
-        </View>
-        <View style={styles.deltaRow}>
-          <TextInput
-            style={[styles.input, styles.amountInput]}
-            placeholder="Custom amount, e.g. -25"
-            placeholderTextColor={colors.muted}
-            keyboardType="numeric"
-            value={bulkAmount}
-            onChangeText={setBulkAmount}
-          />
-          <View style={styles.applyButton}>
-            <Button
-              title={isSaving ? "Saving…" : "Apply"}
-              disabled={selectedCount === 0 || isSaving}
-              onPress={applyTypedAmount}
-            />
-          </View>
-        </View>
+          </>
+        )}
       </View>
     </View>
   );
@@ -331,6 +428,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: colors.text,
     flexShrink: 0,
+  },
+  priceInput: {
+    width: 110,
+    flexShrink: 0,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
+    textAlign: "right",
   },
   note: {
     fontSize: 12.5,

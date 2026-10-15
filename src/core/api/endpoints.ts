@@ -46,12 +46,17 @@ export const LISTINGS_ENDPOINTS = {
 } as const;
 
 export const COMMODITY_CATEGORIES_ENDPOINTS = {
-  list: "/commodity-categories",
+  // Backend paginates (default 20, max 100) — take the max so dropdowns never truncate.
+  list: "/commodity-categories?limit=100",
 } as const;
 
 export const COMMODITIES_ENDPOINTS = {
-  list: (categoryId?: string) =>
-    categoryId ? `/commodities?categoryId=${categoryId}` : "/commodities",
+  // Same pagination rule as categories; categoryId scopes the list server-side.
+  list: (categoryId?: string) => {
+    const q = new URLSearchParams({ limit: "100" });
+    if (categoryId) q.set("categoryId", categoryId);
+    return `/commodities?${q.toString()}`;
+  },
 } as const;
 
 export function apiUrl(path: string): string {

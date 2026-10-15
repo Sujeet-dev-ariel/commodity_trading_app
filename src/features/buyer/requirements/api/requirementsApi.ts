@@ -247,10 +247,26 @@ export const requirementsApi = {
     return requirement;
   },
 
-  /** GET `/listings?side=BUY`; the backend already filters to buyer entries. */
-  async list(token: string): Promise<BuyerRequirement[]> {
+  /**
+   * `GET /listings?side=BUY`.
+   * - Seller market browse: omit `status` (backend default `active` — the
+   *   only status cross-role browsing may see; anything else is 403).
+   * - Buyer "my requirements": pass `status: "active,price_expired"` — the
+   *   backend defaults `userId` to the caller for the buyer role (own rows
+   *   only) and allows own non-active statuses.
+   * `limit=100` (backend max, default 20) so neither list truncates.
+   */
+  async list(
+    token: string,
+    params?: { status?: string; limit?: number },
+  ): Promise<BuyerRequirement[]> {
     const raw = await apiFetch<unknown>(
-      apiUrl(LISTINGS_ENDPOINTS.list("BUY")),
+      apiUrl(
+        LISTINGS_ENDPOINTS.list("BUY", {
+          limit: params?.limit ?? 100,
+          ...(params?.status ? { status: params.status } : {}),
+        }),
+      ),
       { token },
     );
     const records = unwrapList(raw);

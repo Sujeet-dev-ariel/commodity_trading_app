@@ -267,16 +267,14 @@ export function AddListingScreen() {
             <TextInput
               style={[
                 styles.input,
-                styles.textarea,
                 fieldErrors.paymentTerms ? styles.inputError : null,
               ]}
               value={values.paymentTerms}
               onChangeText={(v) => setField("paymentTerms", v)}
-              placeholder="Custom payment terms for this listing"
+              placeholder="Payment terms in days (e.g. 15)"
               placeholderTextColor={colors.muted}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
+              keyboardType="numeric"
+              inputMode="numeric"
             />
             {fieldErrors.paymentTerms ? (
               <Text style={styles.fieldError}>{fieldErrors.paymentTerms}</Text>

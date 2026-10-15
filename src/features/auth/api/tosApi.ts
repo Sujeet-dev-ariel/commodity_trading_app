@@ -70,19 +70,13 @@ function normalizeVersion(raw: unknown): TosVersion {
       "Unexpected server response for terms (missing version).",
     );
   }
+  // Backend-exact `TosVersion` row: { version, effectiveDate, termsUrl,
+  // privacyUrl, publishedAt } — the document is link-based, no inline body.
   return {
     version,
-    title: pickString(data, "title", "name", "heading"),
-    content:
-      pickString(
-        data,
-        "content",
-        "text",
-        "body",
-        "tosText",
-        "terms",
-        "description",
-      ) ?? "",
+    termsUrl: pickString(data, "termsUrl", "terms_url", "tosUrl"),
+    privacyUrl: pickString(data, "privacyUrl", "privacy_url", "privacyPolicyUrl"),
+    effectiveDate: pickString(data, "effectiveDate", "effective_date"),
   };
 }
 

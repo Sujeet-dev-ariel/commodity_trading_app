@@ -24,8 +24,8 @@ export interface CreateListingInput {
   moisture?: string | null;
   color?: string | null;
   size?: string | null;
-  /** Per-listing override; null = the firm default applies. */
-  paymentTerms?: string | null;
+  /** Per-listing override in days; null = the firm default applies. */
+  paymentTerms?: number | null;
   notes?: string | null;
 }
 
@@ -377,15 +377,17 @@ function normalizeListing(
   const seller = pickSeller(obj);
   const category =
     pickCategory(obj, maps?.categoryById, maps?.commodityToCategory) || "Rice";
-  // Backend `VALID_STATUSES`: active, price_expired, na, withdrawn, traded.
-  // Kept verbatim so the Active/Expired tabs split on the real lifecycle.
+  // Backend `VALID_STATUSES`: active, price_expired, na, withdrawn, traded
+  // (schema also defines `sold_out`). Kept verbatim so the Active/Expired
+  // tabs split on the real lifecycle.
   const rawStatus = pickString(obj, "status").toLowerCase();
   const status: ListingStatus | undefined =
     rawStatus === "active" ||
     rawStatus === "price_expired" ||
     rawStatus === "na" ||
     rawStatus === "withdrawn" ||
-    rawStatus === "traded"
+    rawStatus === "traded" ||
+    rawStatus === "sold_out"
       ? rawStatus
       : undefined;
   const sellerId = pickOwnerId(obj);
@@ -426,10 +428,17 @@ export function isActiveListing(l: Pick<Listing, "status" | "price">): boolean {
 }
 
 export const listingsApi = {
-  /** GET `/listings?side=SELL` (default `status=active`) — market listings for buyer browse. */
+  /**
+   * Buyer-browse market feed: `GET /listings?side=SELL` (backend default
+   * `status=active` is exactly what the market shows). `limit=100` (backend
+   * max, default 20) so the market isn't truncated.
+   */
   async list(token: string): Promise<Listing[]> {
     const [raw, maps] = await Promise.all([
-      apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.list("SELL")), { token }),
+      apiFetch<unknown>(
+        apiUrl(LISTINGS_ENDPOINTS.list("SELL", { limit: 100 })),
+        { token },
+      ),
       fetchCatalogMaps(token),
     ]);
     const out: Listing[] = [];

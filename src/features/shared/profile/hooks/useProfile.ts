@@ -8,6 +8,8 @@ export interface ProfileRow {
     | "/account"
     | "/payment-terms"
     | "/firm-terms"
+    | "/platform-terms"
+    | "/privacy-policy"
     | "/orders"
     | "/trades"
     | "/preferences"
@@ -47,8 +49,8 @@ export function useProfile(role: Role | null) {
   ];
 
   const legal: ProfileRow[] = [
-    { key: "privacy", label: "Privacy policy" },
-    { key: "terms", label: "Terms of Service", href: "/firm-terms" },
+    { key: "privacy", label: "Privacy policy", href: "/privacy-policy" },
+    { key: "terms", label: "Terms of Service", href: "/platform-terms" },
   ];
 
   return { main, share, legal };

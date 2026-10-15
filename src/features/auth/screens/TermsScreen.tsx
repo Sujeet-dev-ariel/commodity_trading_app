@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,7 +17,7 @@ import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Fallback copy when the server document has no body text. */
+/** Fallback copy when the server version has no document links yet. */
 const FALLBACK_TOS_TEXT =
   "Please read the full Terms of Service and Privacy Policy before continuing.";
 
@@ -135,15 +136,32 @@ export function TermsScreen() {
         </View>
         <Text style={styles.title}>Terms of Service &amp; Privacy Policy</Text>
         <ScrollView style={styles.card} contentContainerStyle={styles.cardContent}>
-          <Text style={styles.body}>{tos.content || FALLBACK_TOS_TEXT}</Text>
+          <Text style={styles.body}>
+            Version {tos.version}
+            {tos.effectiveDate ? ` · effective ${tos.effectiveDate}` : ""}
+          </Text>
+          <Text style={styles.body}>{FALLBACK_TOS_TEXT}</Text>
         </ScrollView>
         <View style={styles.links}>
-          <Text style={styles.link}>Terms of Service</Text>
-          <Text style={styles.link}>Privacy Policy</Text>
+          {tos.termsUrl ? (
+            <Pressable onPress={() => void Linking.openURL(tos.termsUrl as string)}>
+              <Text style={styles.link}>Terms of Service</Text>
+            </Pressable>
+          ) : null}
+          {tos.privacyUrl ? (
+            <Pressable
+              onPress={() => void Linking.openURL(tos.privacyUrl as string)}
+            >
+              <Text style={styles.link}>Privacy Policy</Text>
+            </Pressable>
+          ) : null}
+          {!tos.termsUrl && !tos.privacyUrl ? (
+            <Text style={styles.note}>Document links not published yet.</Text>
+          ) : null}
         </View>
         <Text style={styles.note}>
           By continuing, you agree to the Terms of Service and Privacy Policy
-          {tos.title ? ` (“${tos.title}”)` : ""}.
+          (version {tos.version}).
         </Text>
         {agreeError ? <Text style={styles.error}>{agreeError}</Text> : null}
         <Pressable style={styles.btn} onPress={handleAgree} disabled={isAgreeing}>

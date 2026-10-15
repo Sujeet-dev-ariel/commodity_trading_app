@@ -9,7 +9,8 @@ import type { BuyerRequirement } from "@/types/domain";
  * Buyer's own posted requirements. The backend defaults
  * `GET /listings?side=BUY` to the caller's own requirements when the caller
  * holds the buyer role — so this is the "My requirements" list, the mirror
- * of the seller's Today's-listings dashboard.
+ * of the seller's Today's-listings dashboard. `status=active,price_expired`
+ * (backend default is `active`-only, which would hide price-expired rows).
  */
 export function useMyRequirements() {
   const { runWithAuth } = useAuth();
@@ -23,7 +24,11 @@ export function useMyRequirements() {
     setError(null);
     try {
       // runWithAuth refreshes the 15m access token on 401 and retries once.
-      setItems(await runWithAuth((token) => requirementsApi.list(token)));
+      setItems(
+        await runWithAuth((token) =>
+          requirementsApi.list(token, { status: "active,price_expired" }),
+        ),
+      );
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not load your requirements"));
     } finally {

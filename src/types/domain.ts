@@ -4,13 +4,19 @@ export type Role = "buyer" | "seller";
 
 export type Category = "Besan" | "Dal" | "Matar" | "Chana" | "Rajma" | "Rice";
 
-/** Backend listing lifecycle (`status` in `GET /listings` — `listing.service.VALID_STATUSES`). */
+/**
+ * Backend listing lifecycle. Service filter values (`listing.service
+ * VALID_STATUSES`): active, price_expired, na, withdrawn, traded; the Prisma
+ * schema additionally defines `sold_out` (never set by the service today,
+ * accepted here so such rows degrade to the Expired tab instead of vanishing).
+ */
 export type ListingStatus =
   | "active"
   | "price_expired"
   | "na"
   | "withdrawn"
-  | "traded";
+  | "traded"
+  | "sold_out";
 
 /** Market listing (buyer browse/home). Price is per-bag rupees. */
 export interface Listing {

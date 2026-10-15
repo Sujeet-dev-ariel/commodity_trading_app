@@ -1,4 +1,4 @@
-import { apiFetch } from "@/core/api/client";
+import { ApiError, apiFetch } from "@/core/api/client";
 import { USERS_ENDPOINTS, apiUrl } from "@/core/api/endpoints";
 
 /**
@@ -126,9 +126,14 @@ export const profileApi = {
 
   /** Update editable profile fields; returns the updated profile. */
   async updateMe(token: string, input: UpdateProfileInput): Promise<MyProfile> {
+    const body = toPayload(input);
+    // Backend 400s an empty patch — fail fast with a readable message.
+    if (Object.keys(body).length === 0) {
+      throw new ApiError(400, "Nothing to save — change a field first.");
+    }
     const raw = await apiFetch<unknown>(apiUrl(USERS_ENDPOINTS.me), {
       method: "PATCH",
-      body: toPayload(input),
+      body,
       token,
     });
     return normalizeProfile(raw);

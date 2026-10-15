@@ -133,7 +133,7 @@ export function useAddListing() {
     }
     if (values.overridePayment && !values.paymentTerms.trim()) {
       nextErrors.paymentTerms =
-        "Enter custom payment terms or uncheck the override";
+        "Enter payment terms in days or uncheck the override";
     }
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
@@ -155,8 +155,9 @@ export function useAddListing() {
             moisture: values.moisture.trim() || null,
             color: values.color.trim() || null,
             size: values.size.trim() || null,
+            // Backend `optionalPositiveInt`: days as a number, never free text.
             paymentTerms: values.overridePayment
-              ? values.paymentTerms.trim() || null
+              ? Number(values.paymentTerms.trim())
               : null,
             notes: values.notes.trim() || null,
           },
