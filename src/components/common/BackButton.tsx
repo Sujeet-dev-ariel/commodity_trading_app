@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 import { colors } from "@/theme/colors";
 
 interface BackButtonProps {
@@ -17,8 +17,8 @@ interface BackButtonProps {
  * Shared back button: pops the navigation stack, falling back to `fallback`
  * when there is no history (deep link).
  *
- * Designed for older business users: a big high-contrast arrow in a filled
- * circle plus a large bold label, with a 48px+ touch target.
+ * Designed for older business users: oversized bold arrow + label with a
+ * 48px+ touch target, no decorative shapes.
  */
 export function BackButton({
   accessibilityLabel = "Back",
@@ -50,20 +50,18 @@ export function BackButton({
       accessibilityLabel={accessibilityLabel}
       hitSlop={8}
     >
-      <View style={styles.circle}>
-        <Text style={styles.arrow}>←</Text>
-      </View>
-      <Text style={styles.backText}>{title}</Text>
+      <Text style={styles.backText}>
+        <Text style={styles.arrow}>← </Text>
+        {title}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   back: {
-    flexDirection: "row",
-    alignItems: "center",
     alignSelf: "flex-start",
-    gap: 10,
+    justifyContent: "center",
     minHeight: 48,
     paddingVertical: 4,
     paddingRight: 16,
@@ -71,25 +69,13 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.55,
   },
-  circle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.primaryTint,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   arrow: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: colors.primaryDark,
-    textAlign: "center",
+    fontSize: 24,
+    fontWeight: "900",
   },
   backText: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: colors.text,
+    fontSize: 19,
+    fontWeight: "800",
+    color: colors.primaryDark,
   },
 });

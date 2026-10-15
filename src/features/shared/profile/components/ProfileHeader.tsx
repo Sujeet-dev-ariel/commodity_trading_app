@@ -12,7 +12,6 @@ export function ProfileHeader({ initial }: ProfileHeaderProps) {
   return (
     <View style={styles.headRow}>
       <BackButton
-        title="← Profile"
         accessibilityLabel="Back to profile"
         fallback="/profile"
       />

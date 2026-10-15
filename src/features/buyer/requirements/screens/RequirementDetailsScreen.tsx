@@ -1,8 +1,9 @@
-import { Alert, ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/common/BackButton";
+import { ConfirmSheet } from "@/components/common/ConfirmSheet";
 import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
@@ -46,6 +47,7 @@ export function RequirementDetailsScreen() {
   );
   const [isLoading, setIsLoading] = useState(!params.item);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -78,32 +80,18 @@ export function RequirementDetailsScreen() {
     };
   }, [load]);
 
-  function confirmWithdraw() {
-    if (!requirement) return;
-    Alert.alert(
-      "Withdraw requirement?",
-      `${requirement.item} will be taken off the market.`,
-      [
-        { text: "Keep", style: "cancel" },
-        {
-          text: "Withdraw",
-          style: "destructive",
-          onPress: () => void doWithdraw(),
-        },
-      ],
-    );
-  }
-
   async function doWithdraw() {
-    if (!requirement) return;
+    if (!requirement || isWithdrawing) return;
     setIsWithdrawing(true);
     setError(null);
     try {
       await runWithAuth((token) =>
         requirementsApi.withdraw(requirement.id, token),
       );
+      // Success navigates back, unmounting the sheet with the screen.
       router.back();
     } catch (e) {
+      // Stay on the sheet so the error shows inside it with a retry.
       setError(getFriendlyApiError(e, "Could not withdraw the requirement"));
     } finally {
       setIsWithdrawing(false);
@@ -111,6 +99,7 @@ export function RequirementDetailsScreen() {
   }
 
   return (
+    <>
     <ScrollView
       contentContainerStyle={[
         styles.content,
@@ -163,14 +152,35 @@ export function RequirementDetailsScreen() {
 
           <View style={styles.buttonWrapper}>
             <Button
-              title={isWithdrawing ? "Withdrawing…" : "Withdraw requirement"}
+              title="Withdraw requirement"
               variant="secondary"
-              onPress={confirmWithdraw}
+              onPress={() => setShowConfirm(true)}
             />
           </View>
         </>
       ) : null}
     </ScrollView>
+    <ConfirmSheet
+      visible={showConfirm && requirement !== null}
+      title="Withdraw requirement?"
+      message={
+        requirement
+          ? `${requirement.item} will be taken off the market.`
+          : ""
+      }
+      confirmTitle="Withdraw"
+      cancelTitle="Keep"
+      error={error}
+      isBusy={isWithdrawing}
+      onConfirm={() => void doWithdraw()}
+      onCancel={() => {
+        if (!isWithdrawing) {
+          setShowConfirm(false);
+          setError(null);
+        }
+      }}
+    />
+    </>
   );
 }
 

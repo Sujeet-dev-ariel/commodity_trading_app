@@ -1,6 +1,8 @@
-import { Alert, ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { ConfirmSheet } from "@/components/common/ConfirmSheet";
 import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
 import { useMyRequirements } from "@/features/buyer/requirements/hooks/useMyRequirements";
@@ -18,6 +20,8 @@ export function MyRequirementsScreen() {
   const insets = useSafeAreaInsets();
   const { items, count, isLoading, error, retry, withdraw, withdrawingId } =
     useMyRequirements();
+  const [pending, setPending] = useState<BuyerRequirement | null>(null);
+  const pendingBusy = pending ? withdrawingId === String(pending.id) : false;
 
   function openForm() {
     router.push("/post-req/new");
@@ -37,24 +41,16 @@ export function MyRequirementsScreen() {
     });
   }
 
-  function confirmWithdraw(req: BuyerRequirement) {
-    Alert.alert(
-      "Withdraw requirement?",
-      `${req.item} — ${req.bags} bags will be taken off the market.`,
-      [
-        { text: "Keep", style: "cancel" },
-        {
-          text: "Withdraw",
-          style: "destructive",
-          onPress: () => {
-            void withdraw(req.id);
-          },
-        },
-      ],
-    );
+  async function handleSheetConfirm() {
+    if (!pending || pendingBusy) return;
+    const ok = await withdraw(pending.id);
+    // Stay open on failure so the error shows inside the sheet; the list
+    // behind also carries it once the sheet is dismissed.
+    if (ok) setPending(null);
   }
 
   return (
+    <>
     <ScrollView
       contentContainerStyle={[
         styles.content,
@@ -114,7 +110,7 @@ export function MyRequirementsScreen() {
                 <Pressable
                   hitSlop={8}
                   disabled={busy}
-                  onPress={() => confirmWithdraw(req)}
+                  onPress={() => setPending(req)}
                   accessibilityRole="button"
                   accessibilityLabel={`Withdraw ${req.item}`}
                 >
@@ -131,10 +127,28 @@ export function MyRequirementsScreen() {
               see.
             </Text>
           ) : null}
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error && !pending ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
       )}
     </ScrollView>
+    <ConfirmSheet
+      visible={pending !== null}
+      title="Withdraw requirement?"
+      message={
+        pending
+          ? `${pending.item} — ${pending.bags} bags will be taken off the market.`
+          : ""
+      }
+      confirmTitle="Withdraw"
+      cancelTitle="Keep"
+      error={error}
+      isBusy={pendingBusy}
+      onConfirm={() => void handleSheetConfirm()}
+      onCancel={() => {
+        if (!pendingBusy) setPending(null);
+      }}
+    />
+    </>
   );
 }
 
